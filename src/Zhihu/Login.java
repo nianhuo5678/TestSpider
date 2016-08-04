@@ -43,14 +43,14 @@ public class Login {
 		CloseableHttpResponse httpResponse1 = null,httpResponse2 = null;
 //		Get方法访问http://www.zhihu.com/ 获得 _xfrf 字段
 		HttpGet httpGet = new HttpGet("https://www.zhihu.com/");
-		HttpEntity httpEntity = null;
+		HttpEntity httpEntity1 = null, httpEntity2 = null;
 		String xsrf = null;
 		try {
 			//Get方法预登录，处理返回的html页面
 			httpResponse1 = httpClient.execute(httpGet);
-			httpEntity = httpResponse1.getEntity();
+			httpEntity1 = httpResponse1.getEntity();
 			System.out.println("Status code get method: " + httpResponse1.getStatusLine().getStatusCode());
-			String html = EntityUtils.toString(httpEntity);
+			String html = EntityUtils.toString(httpEntity1);
 			Document doc = Jsoup.parse(html);
 			xsrf = doc.select("input[name='_xsrf']").attr("value");
 			System.out.println("_xsrf: " + xsrf);
