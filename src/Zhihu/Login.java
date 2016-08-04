@@ -65,7 +65,7 @@ public class Login {
 			httpPost.setEntity(new UrlEncodedFormEntity(parameters));
 			httpResponse2 = httpClient.execute(httpPost);
 			System.out.println("Status code post method: " + httpResponse2.getStatusLine().getStatusCode());
-			System.out.println("Response body:" + EntityUtils.toString(httpResponse2.getEntity()));
+			System.out.println("Response body:" + EntityUtils.toString(httpResponse2.getEntity(),"UTF-8"));
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
