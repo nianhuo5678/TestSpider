@@ -20,6 +20,9 @@ import org.apache.http.util.EntityUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import net.sf.json.*;
+
+import net.sf.json.JSONObject;
 
 
 
@@ -65,7 +68,11 @@ public class Login {
 			httpPost.setEntity(new UrlEncodedFormEntity(parameters));
 			httpResponse2 = httpClient.execute(httpPost);
 			System.out.println("Status code post method: " + httpResponse2.getStatusLine().getStatusCode());
-			System.out.println("Response body:" + EntityUtils.toString(httpResponse2.getEntity(),"UTF-8"));
+			String jsonStr = EntityUtils.toString(httpResponse2.getEntity(),"UTF-8");
+			System.out.println("Response body:" + jsonStr);
+			JSONObject jO = JSONObject.fromObject(jsonStr);
+			String msg = jO.getString("msg");
+			System.out.println("JSON msg: " + msg);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
