@@ -1,5 +1,7 @@
 package demo;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Set;
 
 import org.openqa.selenium.By;
@@ -11,8 +13,10 @@ import java.io.IOException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.CookieStore;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.util.EntityUtils;
@@ -21,7 +25,7 @@ public class LoginWithSenlenium {
 
 	public static void main(String[] args) throws InterruptedException {
 		// TODO Auto-generated method stub
-//		Login using senlenium 
+//		使用 senlenium 登录
 		String url = "http://t.1.163.com/";
 		System.setProperty("webdriver.chrome.driver", "E:\\testtools\\selenium\\chromedriver.exe");
 		WebDriver driver = new ChromeDriver();
@@ -40,21 +44,48 @@ public class LoginWithSenlenium {
 		Thread.sleep(1000);
 		//Get cookie from webDriver
 		Set<Cookie> cookies = driver.manage().getCookies();
-		String cookiesStr = cookies.toString();
-		System.out.println("cookies: " + cookiesStr);
 		
-//		Get方法访问 t.1.163.com, 获取token
-		CloseableHttpClient httpClient = HttpClients.createDefault();
+//		Get方法访问 http://t.1.163.com/, 获取token
+		BasicCookieStore cookieStore = new BasicCookieStore();
+		BasicClientCookie cookie = null;
+		String otokenStr = null;
+		HttpClientContext context = HttpClientContext.create();
+		for (Cookie c : cookies) {
+			cookie = new BasicClientCookie(c.getName(), c.getValue());
+			cookie.setDomain(c.getDomain());
+			cookie.setExpiryDate(c.getExpiry());
+			cookie.setPath(c.getPath());
+			cookieStore.addCookie(cookie);
+		}
+		CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build();
 		HttpGet httpGet = new HttpGet(url);
-
 		CloseableHttpResponse httpResponse = null;
 		try {
-			httpResponse = httpClient.execute(httpGet);
+			httpResponse = httpClient.execute(httpGet, context);
 			HttpEntity entity = httpResponse.getEntity();
 //			打印状态码（status code）
 			System.out.println("Status Code: " + httpResponse.getStatusLine().getStatusCode());
+			CookieStore responseCookieStore = context.getCookieStore();
+			List<org.apache.http.cookie.Cookie> responseCookie = responseCookieStore.getCookies();
+			//response的cookies,从中拿到OTOKEN
+			System.out.println("Cookies from response.");
+			for (org.apache.http.cookie.Cookie c : responseCookie) {
+				System.out.println(c.toString());
+				if (c.getName().equals("OTOKEN")) {
+					otokenStr = c.getValue();
+					System.out.println("OTOKEN: " + otokenStr);
+				}
+			}
+//			Get方法请求/user/global.do
+			url = url + "user/global.do?token=" + otokenStr + "&t=" + System.currentTimeMillis();
+			System.out.println("url: " + url);
+			httpGet = new HttpGet(url);
+			httpResponse = httpClient.execute(httpGet);
+			System.out.println("response of /user/global.do");
+			System.out.println("Status Code: " + httpResponse.getStatusLine().getStatusCode());
+			entity = httpResponse.getEntity();
+			System.out.println("Response body:" + EntityUtils.toString(entity));
 
-			EntityUtils.consume(entity);
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -66,6 +97,7 @@ public class LoginWithSenlenium {
 //				关闭response对象、httpclient对象
 				httpResponse.close();
 				httpClient.close();
+				driver.quit();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -73,7 +105,7 @@ public class LoginWithSenlenium {
 		}
 		
 
-		driver.quit();
+		
 		
 	}
 
