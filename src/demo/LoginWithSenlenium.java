@@ -12,11 +12,14 @@ import org.openqa.selenium.chrome.ChromeDriver;
 import java.io.IOException;
 
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CookieStore;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.cookie.ClientCookie;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.util.EntityUtils;
@@ -42,50 +45,57 @@ public class LoginWithSenlenium {
 		driver.findElement(By.xpath("//a[@id='dologin']")).click();
 		driver.switchTo().defaultContent();  //离开登录框iframe
 		Thread.sleep(1000);
-		//Get cookie from webDriver
+		//从Selenium获得Cookies
 		Set<Cookie> cookies = driver.manage().getCookies();
-		
-//		Get方法访问 http://t.1.163.com/, 获取token
+//		关闭webDriver
+		driver.quit();
+
+	
+/*	
+ * 	把webDriver取得的Cookies转换成为httpClient的Cookie。并取出OTOKEN
+ * 
+ *  clientCookie.setAttribute 的作用：
+ * 	设置ClientCookie的域名属性。这个例子里面存在以下两种Domain的Cookie， '1.163.com' 和 '.163.com'。
+ *  假如不设置ClientCookie.DOMAIN_ATTR，发送Get请求http://t.1.163.com/的时候只会带上cookieStore中domain是t.1.163.com的，导致缺少cookie失败。
+ *  设置了ClientCookie.DOMAIN_ATTR, ".163.com"之后，发送请求的时候，会把所有Domain满足'.163.com'的cookie都带上。
+ */
 		BasicCookieStore cookieStore = new BasicCookieStore();
-		BasicClientCookie cookie = null;
+		BasicClientCookie clientCookie = null;
 		String otokenStr = null;
-		HttpClientContext context = HttpClientContext.create();
 		for (Cookie c : cookies) {
-			cookie = new BasicClientCookie(c.getName(), c.getValue());
-			cookie.setDomain(c.getDomain());
-			cookie.setExpiryDate(c.getExpiry());
-			cookie.setPath(c.getPath());
-			cookieStore.addCookie(cookie);
+			if (c.getName().equals("OTOKEN")) {
+				otokenStr = c.getValue();
+				System.out.println("otokenStr:" + otokenStr);
+			}
+			clientCookie = new BasicClientCookie(c.getName(), c.getValue());
+			clientCookie.setAttribute(ClientCookie.DOMAIN_ATTR, ".163.com");
+			clientCookie.setDomain(c.getDomain());
+			clientCookie.setExpiryDate(c.getExpiry());
+			clientCookie.setPath(c.getPath());
+//			System.out.println("clientCookie:" + clientCookie.toString());
+			cookieStore.addCookie(clientCookie);	
 		}
-		CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build();
+
+		
+		
+//		请求通过fiddler发送，127.0.0.1:8888
+		HttpHost proxy = new HttpHost("127.0.0.1", 8888, "http");
+//		创建请求的配置对象，添加proxy。
+		RequestConfig config = RequestConfig.custom().setProxy(proxy).build();
+//		CloseableHttpClient httpClient = HttpClientBuilder.create().setDefaultCookieStore(cookieStore).build();
+		CloseableHttpClient httpClient = HttpClients.custom().setDefaultCookieStore(cookieStore).build();
+//		Get方法请求/user/global.do
+		url = url + "user/global.do?token=" + otokenStr + "&t=" + System.currentTimeMillis();
 		HttpGet httpGet = new HttpGet(url);
 		CloseableHttpResponse httpResponse = null;
 		try {
-			httpResponse = httpClient.execute(httpGet, context);
-			HttpEntity entity = httpResponse.getEntity();
-//			打印状态码（status code）
-			System.out.println("Status Code: " + httpResponse.getStatusLine().getStatusCode());
-			CookieStore responseCookieStore = context.getCookieStore();
-			List<org.apache.http.cookie.Cookie> responseCookie = responseCookieStore.getCookies();
-			//response的cookies,从中拿到OTOKEN
-			System.out.println("Cookies from response.");
-			for (org.apache.http.cookie.Cookie c : responseCookie) {
-				System.out.println(c.toString());
-				if (c.getName().equals("OTOKEN")) {
-					otokenStr = c.getValue();
-					System.out.println("OTOKEN: " + otokenStr);
-				}
-			}
-//			Get方法请求/user/global.do
-			url = url + "user/global.do?token=" + otokenStr + "&t=" + System.currentTimeMillis();
-			System.out.println("url: " + url);
-			httpGet = new HttpGet(url);
+//			通过proxy发送请求(Fiddler)
+//			httpResponse = httpClient.execute(proxy, httpGet);
+//			不通过proxy发送请求
 			httpResponse = httpClient.execute(httpGet);
-			System.out.println("response of /user/global.do");
-			System.out.println("Status Code: " + httpResponse.getStatusLine().getStatusCode());
+			HttpEntity entity = httpResponse.getEntity();
 			entity = httpResponse.getEntity();
-			System.out.println("Response body:" + EntityUtils.toString(entity));
-
+			System.out.println("\nuser/global.do 的Response body:" + EntityUtils.toString(entity));
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -97,16 +107,12 @@ public class LoginWithSenlenium {
 //				关闭response对象、httpclient对象
 				httpResponse.close();
 				httpClient.close();
-				driver.quit();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-		
-
-		
-		
+	
 	}
 
 }
