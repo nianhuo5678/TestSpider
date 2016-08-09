@@ -9,6 +9,10 @@ import org.openqa.selenium.Cookie;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.phantomjs.PhantomJSDriver;
+import org.openqa.selenium.phantomjs.PhantomJSDriverService;
+import org.openqa.selenium.remote.DesiredCapabilities;
+
 import java.io.IOException;
 
 import org.apache.http.HttpEntity;
@@ -25,35 +29,53 @@ import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.util.EntityUtils;
 
 public class LoginWithSenlenium {
-
-	public static void main(String[] args) throws InterruptedException {
-		// TODO Auto-generated method stub
-//		使用 senlenium 登录
-		String url = "http://t.1.163.com/";
-		System.setProperty("webdriver.chrome.driver", "E:\\testtools\\selenium\\chromedriver.exe");
+	
+	public Set<Cookie> getCookieFromWebdriver (String url)  {
+//		Chrome driver
+		System.setProperty("webdriver.chrome.driver", "E:\\java\\selenium\\chromedriver.exe");
 		WebDriver driver = new ChromeDriver();
+		
+//		Panthantomjs driver
+//		DesiredCapabilities caps = new DesiredCapabilities();
+//		caps.setCapability(PhantomJSDriverService
+//				.PHANTOMJS_EXECUTABLE_PATH_PROPERTY, "E:\\java\\phantomjs\\phantomjs-2.1.1-windows\\bin\\phantomjs.exe");
+//		caps.setJavascriptEnabled(true);
+//		caps.setCapability("takesScreenshot", true);
+//		WebDriver driver = new  PhantomJSDriver(caps);
+	
 		driver.manage().window().maximize();
 		driver.get(url);
-		Thread.sleep(2000);
-		WebElement eLoginLink = driver.findElement(By.className("m-toolbar-login-btn"));
-		eLoginLink.click();
-		Thread.sleep(3000);	
-		WebElement temp = driver.findElement(By.xpath("//iframe[@frameborder='0']"));
-		driver.switchTo().frame(temp);  //进入登录框iframe
-		driver.findElement(By.xpath("//input[@class='j-inputtext dlemail']")).sendKeys("oneyuantest1@163.com");
-		driver.findElement(By.xpath("//input[@class='j-inputtext dlpwd']")).sendKeys("163a163");
-		driver.findElement(By.xpath("//a[@id='dologin']")).click();
-		driver.switchTo().defaultContent();  //离开登录框iframe
-		Thread.sleep(1000);
+		try {
+			Thread.sleep(2000);
+			WebElement eLoginLink = driver.findElement(By.className("m-toolbar-login-btn"));
+			eLoginLink.click();
+			Thread.sleep(3000);	
+			WebElement temp = driver.findElement(By.xpath("//iframe[@frameborder='0']"));
+			driver.switchTo().frame(temp);  //进入登录框iframe
+			driver.findElement(By.xpath("//input[@class='j-inputtext dlemail']")).sendKeys("oneyuantest1@163.com");
+			driver.findElement(By.xpath("//input[@class='j-inputtext dlpwd']")).sendKeys("163a163");
+			driver.findElement(By.xpath("//a[@id='dologin']")).click();
+			driver.switchTo().defaultContent();  //离开登录框iframe
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		//从Selenium获得Cookies
 		Set<Cookie> cookies = driver.manage().getCookies();
 //		关闭webDriver
 		driver.quit();
+		return cookies;
+	}
 
-	
+	public static void main(String[] args)  {
+		// TODO Auto-generated method stub
+
+		String url = "http://1.163.com/";
+		LoginWithSenlenium lws = new LoginWithSenlenium();
+		Set<Cookie> cookies = lws.getCookieFromWebdriver(url);
 /*	
  * 	把webDriver取得的Cookies转换成为httpClient的Cookie。并取出OTOKEN
- * 
  *  clientCookie.setAttribute 的作用：
  * 	设置ClientCookie的域名属性。这个例子里面存在以下两种Domain的Cookie， '1.163.com' 和 '.163.com'。
  *  假如不设置ClientCookie.DOMAIN_ATTR，发送Get请求http://t.1.163.com/的时候只会带上cookieStore中domain是t.1.163.com的，导致缺少cookie失败。
