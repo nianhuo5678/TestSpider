@@ -35,7 +35,7 @@ public class Quibids {
 //		qui.getAuctionInfo(httpClient, auctionUrl);
 //		qui.getWinnerInfo(httpClient);
 		
-		qui.transferToI("355322352");
+
 		
 	}
 
@@ -65,13 +65,6 @@ public class Quibids {
 			auctionStatus = doc.getElementById("auction-left").getElementsByTag("a").get(0).text();
 //			call getBids method to get every bids
 			this.getBids(httpClient, auctionID);
-			
-//			System.out.println("auctionID: " + auctionID + 
-//					"\nproduct_title: " + productTitle + 
-//					"\nvaluePrice: " + valuePrice +
-//					"\ntransactionFree: " + transactionFree +
-//					"\nreturnPolicy: " + returnPolicy +
-//					"\nauctionStatus: " + auctionStatus);	
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -121,7 +114,8 @@ public class Quibids {
 	}
 	
 	public void getBids(CloseableHttpClient httpClient, String auctionID) {
-		String b = "68549536", w = "ys", m = "100", i = "ST02C5";
+		String b = "68549536", w = "ys", m = "100", i;
+		i = this.transferToI(auctionID);
 		String url = "http://www.quibids.com/ajax/u.php?b=" + b + 
 				"&w=" + w +
 				"&m=" + m +
