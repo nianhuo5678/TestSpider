@@ -28,13 +28,14 @@ public class Quibids {
 		// TODO Auto-generated method stub
 
 		Quibids qui = new Quibids();
-		CloseableHttpClient httpClient = HttpClients.createDefault();
-		String auctionUrl;
+//		CloseableHttpClient httpClient = HttpClients.createDefault();
+//		String auctionUrl;
 //		auctionUrl = "/en/auction-150599818US-C8593-50-shell-gift-card";
-		auctionUrl = "/en/auction-282902125US-C1534-50-walmart-gift-card";
-		qui.getAuctionInfo(httpClient, auctionUrl);
+//		auctionUrl = "/en/auction-282902125US-C1534-50-walmart-gift-card";
+//		qui.getAuctionInfo(httpClient, auctionUrl);
 //		qui.getWinnerInfo(httpClient);
 		
+		qui.transferToI("355322352");
 		
 	}
 
@@ -152,22 +153,12 @@ public class Quibids {
 	}
 	
 	public String transferToI(String lb_id) {
-		String i = "";
-		int c = 0;
-		while (c < (lb_id.length() - 1)) {
-			int num = Integer.parseInt(lb_id.substring(c, c+2));
-			if (num >= 10 && num <= 35) {
-//				A-Z
-				i = i + (char)(num + 55);
-				c = c + 2;
-			} else if ( num >= 40 && num <= 65) {
-//				a-z
-				i = i + (char)(num + 57);
-				c = c + 2;
-			} else {
-				i = i + lb_id.substring(c, c+1);
-				c = c + 1;
-			}
+		String i = lb_id;
+		for (int j = 10; j <=35; j++) {
+			i = i.replace("" + j, "" + (char)(j + 55));
+		}
+		for (int k = 40; k <=65; k++) {
+			i = i.replace("" + k, "" + (char)(k + 57));
 		}
 		System.out.println("i=" + i);
 		return i;
