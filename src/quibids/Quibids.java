@@ -28,11 +28,10 @@ public class Quibids {
 		// TODO Auto-generated method stub
 
 		Quibids qui = new Quibids();
-//		CloseableHttpClient httpClient = HttpClients.createDefault();
-//		String auctionUrl;
-//		auctionUrl = "/en/auction-150599818US-C8593-50-shell-gift-card";
-//		auctionUrl = "/en/auction-282902125US-C1534-50-walmart-gift-card";
-//		qui.getAuctionInfo(httpClient, auctionUrl);
+		CloseableHttpClient httpClient = HttpClients.createDefault();
+		String auctionUrl;
+		auctionUrl = "/en/auction-939458876US-C1534-50-walmart-gift-card";
+		qui.getAuctionInfo(httpClient, auctionUrl);
 //		qui.getWinnerInfo(httpClient);
 		
 
@@ -114,7 +113,8 @@ public class Quibids {
 	}
 	
 	public void getBids(CloseableHttpClient httpClient, String auctionID) {
-		String b = "68549536", w = "ys", m = "100", i;
+		JSONObject jO;
+		String b = "70306478", w = "ys", m = "100", i;
 		i = this.transferToI(auctionID);
 		String url = "http://www.quibids.com/ajax/u.php?b=" + b + 
 				"&w=" + w +
@@ -122,14 +122,17 @@ public class Quibids {
 				"&i=" + i +
 				"&lb_id=" + auctionID +
 				"&c=" + "jQuery" + "012345678901234567890" + "_" + System.currentTimeMillis();
-		System.out.println("url: " + url);
 		HttpGet httpGet = new HttpGet(url);
 		CloseableHttpResponse httpResponse = null;
 		try {
 			httpResponse = httpClient.execute(httpGet);
 			HttpEntity entity = httpResponse.getEntity();
-			System.out.println("Status Code: " + httpResponse.getStatusLine().getStatusCode());
-			System.out.println("Response body: " + EntityUtils.toString(entity));
+			String responseBody = EntityUtils.toString(entity);
+//			使用正则表达式提取出 （ 和 ）包起来的JSON字符串
+			System.out.println(responseBody);
+			jO = JSONObject.fromObject(responseBody);
+			String lb = jO.getString("lb");
+			System.out.println("lb:" + lb);
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -154,7 +157,6 @@ public class Quibids {
 		for (int k = 40; k <=65; k++) {
 			i = i.replace("" + k, "" + (char)(k + 57));
 		}
-		System.out.println("i=" + i);
 		return i;
 	}
 	
