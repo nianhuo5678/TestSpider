@@ -14,6 +14,7 @@ import org.apache.http.util.EntityUtils;
 import org.jsoup.*;
 import org.jsoup.nodes.Document;
 
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 import java.io.*;
@@ -127,12 +128,12 @@ public class Quibids {
 		try {
 			httpResponse = httpClient.execute(httpGet);
 			HttpEntity entity = httpResponse.getEntity();
-			String responseBody = EntityUtils.toString(entity);
-//			使用正则表达式提取出 （ 和 ）包起来的JSON字符串
+//			分割字符串，提取出 （ 和 ）之间的json字符串
+			String responseBody = EntityUtils.toString(entity).split("\\(")[1].split("\\)")[0];
 			System.out.println(responseBody);
 			jO = JSONObject.fromObject(responseBody);
-			String lb = jO.getString("lb");
-			System.out.println("lb:" + lb);
+			JSONArray bh = jO.getJSONObject("a").getJSONObject(auctionID).getJSONArray("bh");
+			
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
