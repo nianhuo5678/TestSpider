@@ -30,11 +30,18 @@ public class Quibids {
 		// TODO Auto-generated method stub
 
 		Quibids qui = new Quibids();
+		Auction auction = new Auction();
+		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
-		auctionUrl = "/en/auction-910734778US-C1348-50-voucher-bids";
-		qui.getAuctionInfo(httpClient, auctionUrl);
+		auctionUrl = "/en/auction-563607340US-C1593-15-voucher-bids";
+		
+		qui.getAuctionInfo(auction, httpClient, auctionUrl);
+		qui.getBids(bidders, httpClient, auction.getAuctionID());
 //		qui.getWinnerInfo(httpClient);
+		qui.writeExcel(auction, bidders);
+		
+		
 		
 		try {
 			httpClient.close();
@@ -48,10 +55,10 @@ public class Quibids {
 	}
 
 	
-	public void getAuctionInfo(CloseableHttpClient httpClient, String auctionUrl) {
+	public void getAuctionInfo(Auction auction, CloseableHttpClient httpClient, String auctionUrl) {
 		
 		String auctionID, productTitle, valuePrice, transactionFree, returnPolicy, auctionStatus;
-		Auction auction = new Auction();
+//		Auction auction = new Auction();
 		HttpGet httpGet = new HttpGet("http://www.quibids.com" + auctionUrl);
 		HttpPost httpPost = null;
 		CloseableHttpResponse httpResponse = null;
@@ -75,7 +82,7 @@ public class Quibids {
 			auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(2).text().substring(15));
 			
 //			获取竞拍价
-			this.getBids(httpClient, auctionID);
+//			this.getBids(httpClient, auctionID);
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -124,9 +131,9 @@ public class Quibids {
 
 	}
 	
-	public void getBids(CloseableHttpClient httpClient, String auctionID) {
+	public void getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID) {
 		JSONObject jO;
-		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
+//		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		String[] achievements = null;
 		String b = "70762479", w = "ys", m = "100", i;
 		int maxID = 0;
@@ -232,17 +239,17 @@ public class Quibids {
 								bidder.setUname(bid.getString("u"));
 								bidder.setBidTime(dateFormat.format(new Date()));
 								bidders.add(bidder);
-								System.out.println("id:" + bidder.getId() + 
-										", Uname:" + bidder.getUname() + 
-										", Price:" + bidder.getPrice() + 
-										", Joined Day:" + bidder.getJoinDay() +
-										", Bid time:" + bidder.getBidTime() + 
-										", Bid type:" + bidder.getType() + 
-										", Bidding on:" + bidder.getBiddingOn() +
-										", Latest win:" + bidder.getLatestWin());
-								for (int a2 = 0; a2 < achievements.length; a2++) {
-									System.out.println(" " + achievements[a2]);
-								}
+//								System.out.println("id:" + bidder.getId() + 
+//										", Uname:" + bidder.getUname() + 
+//										", Price:" + bidder.getPrice() + 
+//										", Joined Day:" + bidder.getJoinDay() +
+//										", Bid time:" + bidder.getBidTime() + 
+//										", Bid type:" + bidder.getType() + 
+//										", Bidding on:" + bidder.getBiddingOn() +
+//										", Latest win:" + bidder.getLatestWin());
+//								for (int a2 = 0; a2 < achievements.length; a2++) {
+//									System.out.println(" " + achievements[a2]);
+//								}
 							}
 //							更新maxID
 							maxID = latestBidID;
@@ -281,5 +288,13 @@ public class Quibids {
 		return i;
 	}
 	
-	
+	public void writeExcel(Auction auction, ArrayList<Bidder> bidders) {
+		System.out.println("Auction info:");
+		System.out.println("AuctionID:" + auction.getAuctionID() +
+				", Product title: " + auction.getProductTitle());
+		System.out.println("Bidding history:");
+		for (Bidder b : bidders) {
+			System.out.println("Bidder:" + b.getId() + ", Name: " + b.getUname());
+		}
+	}
 }
