@@ -18,6 +18,7 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Random;
@@ -31,9 +32,16 @@ public class Quibids {
 		Quibids qui = new Quibids();
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
-		auctionUrl = "/en/auction-939458876US-C1534-50-walmart-gift-card";
+		auctionUrl = "/en/auction-910734778US-C1348-50-voucher-bids";
 		qui.getAuctionInfo(httpClient, auctionUrl);
 //		qui.getWinnerInfo(httpClient);
+		
+		try {
+			httpClient.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 
 		
@@ -43,11 +51,9 @@ public class Quibids {
 	public void getAuctionInfo(CloseableHttpClient httpClient, String auctionUrl) {
 		
 		String auctionID, productTitle, valuePrice, transactionFree, returnPolicy, auctionStatus;
-//		HttpHost proxy = new HttpHost("192.168.1.103", 8787, "http");
-//		RequestConfig config = RequestConfig.custom().setProxy(proxy).build();
+		Auction auction = new Auction();
 		HttpGet httpGet = new HttpGet("http://www.quibids.com" + auctionUrl);
 		HttpPost httpPost = null;
-//		httpGet.setConfig(config);
 		CloseableHttpResponse httpResponse = null;
 		HttpEntity httpEntity = null;
 		try {
@@ -55,15 +61,20 @@ public class Quibids {
 			httpEntity = httpResponse.getEntity();
 			String html = EntityUtils.toString(httpEntity);
 			Document doc = Jsoup.parse(html);
-			System.out.println(auctionUrl + ":" + httpResponse.getStatusLine().getStatusCode());
-//			get auction info
+//			获取并存储竞拍信息
 			auctionID = doc.select("span[itemprop='title']").get(2).text().substring(10);
-			productTitle = doc.getElementById("product_title").text();
-			valuePrice = doc.getElementsByClass("float-right").get(0).text();
-			transactionFree = doc.getElementById("product_description").getElementsByTag("p").get(1).text().substring(17);
-			returnPolicy = doc.getElementById("product_description").getElementsByTag("p").get(2).text().substring(15);
-			auctionStatus = doc.getElementById("auction-left").getElementsByTag("a").get(0).text();
-//			call getBids method to get every bids
+//			productTitle = doc.getElementById("product_title").text();
+//			valuePrice = doc.getElementsByClass("float-right").get(0).text();
+//			transactionFree = doc.getElementById("product_description").getElementsByTag("p").get(1).text().substring(17);
+//			returnPolicy = doc.getElementById("product_description").getElementsByTag("p").get(2).text().substring(15);
+//			auctionStatus = doc.getElementById("auction-left").getElementsByTag("a").get(0).text();
+			auction.setAuctionID(auctionID);
+			auction.setProductTitle(doc.getElementById("product_title").text());
+			auction.setValuePrice(doc.getElementsByClass("float-right").get(0).text());
+			auction.setTransactionFree(doc.getElementById("product_description").getElementsByTag("p").get(1).text().substring(17));
+			auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(2).text().substring(15));
+			
+//			获取竞拍价
 			this.getBids(httpClient, auctionID);
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
@@ -115,39 +126,148 @@ public class Quibids {
 	
 	public void getBids(CloseableHttpClient httpClient, String auctionID) {
 		JSONObject jO;
-		String b = "70306478", w = "ys", m = "100", i;
+		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
+		String[] achievements = null;
+		String b = "70762479", w = "ys", m = "100", i;
+		int maxID = 0;
+		int latestBidID = 0;
+		boolean existed = false;
 		i = this.transferToI(auctionID);
+		SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 		String url = "http://www.quibids.com/ajax/u.php?b=" + b + 
 				"&w=" + w +
 				"&m=" + m +
 				"&i=" + i +
 				"&lb_id=" + auctionID +
 				"&c=" + "jQuery" + "012345678901234567890" + "_" + System.currentTimeMillis();
+		String profileUrl = null;
 		HttpGet httpGet = new HttpGet(url);
-		CloseableHttpResponse httpResponse = null;
-		try {
-			httpResponse = httpClient.execute(httpGet);
-			HttpEntity entity = httpResponse.getEntity();
-//			分割字符串，提取出 （ 和 ）之间的json字符串
-			String responseBody = EntityUtils.toString(entity).split("\\(")[1].split("\\)")[0];
-			System.out.println(responseBody);
-			jO = JSONObject.fromObject(responseBody);
-			JSONArray bh = jO.getJSONObject("a").getJSONObject(auctionID).getJSONArray("bh");
-			
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
+		HttpGet profileGet = null;
+		CloseableHttpResponse httpResponse = null;	
+		CloseableHttpResponse profileResponse = null;
+		while (true) {
+//			每次获竞拍信息间隔时间
 			try {
-				httpResponse.close();
+				Thread.sleep(1000);
+			} catch (InterruptedException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			try {
+				httpResponse = httpClient.execute(httpGet);
+				HttpEntity entity = httpResponse.getEntity();
+//				分割字符串，提取出 （ 和 ）之间的json字符串
+				String responseBody = EntityUtils.toString(entity).split("\\(")[1].split("\\)")[0];
+				jO = JSONObject.fromObject(responseBody);
+//				竞拍结束跳出while循环
+				if (responseBody.contains("Completed")) {
+					for (Bidder b1 : bidders) {
+//						System.out.println("id:" + b1.getId() + ", uname:" + b1.getUname() + ", price:" + b1.getPrice());
+					}
+					break;
+				}
+				if (responseBody.contains("bh")) {
+//					竞拍价更新
+					JSONArray bh = jO.getJSONObject("a").getJSONObject(auctionID).getJSONArray("bh");
+//					System.out.println(responseBody);
+					JSONObject bid = null;
+					latestBidID = bh.getJSONObject(0).getInt("id");
+//					如果最新报价ID大于最大ID,报价有更新
+					if (latestBidID > maxID ) {
+						if ( (latestBidID - maxID) <= 9) {
+							for (int j = (latestBidID - maxID - 1); j >= 0; j--) {
+								bid = (JSONObject) bh.getJSONObject(j);
+								Bidder bidder = new Bidder();
+//								查找当前采集到的用户是否已获取到用户资料，如果存在则从队列中复制，否则发送请求获取
+								for (Bidder b1 : bidders) {
+									if (bid.getString("u").equals(b1.getUname())) {
+										bidder.setJoinDay(b1.getJoinDay());
+										bidder.setBiddingOn(b1.getBiddingOn());
+										bidder.setLatestWin(b1.getLatestWin());
+										bidder.setAchievements(b1.getAchievements());
+										existed = true;
+										break;
+									} else {
+										existed = false;
+									}
+								}
+//								如果当前采集到出价用户不在列表中，发送请求获取用户详细信息
+								if ( !existed) {
+									profileUrl = "http://www.quibids.com/ajax/profiles.php?username=" + bid.getString("u") +
+											"&auctionid=" + auctionID;
+									profileGet = new HttpGet(profileUrl);
+									profileResponse = httpClient.execute(profileGet);
+									String profileStr = EntityUtils.toString(profileResponse.getEntity());
+									JSONObject profileJSON = JSONObject.fromObject(profileStr);
+									bidder.setJoinDay(profileJSON.getJSONObject("profile").getString("joined"));
+									bidder.setBiddingOn(profileJSON.getJSONObject("profile").getString("biddingOn"));
+//									判断用户的latestWin是否为空，如果是空，存入never win。
+									if (profileJSON.getJSONObject("profile").getString("win").equals("")) {
+										bidder.setLatestWin("never win");
+									} else {
+										bidder.setLatestWin(profileJSON.getJSONObject("profile").getString("win").split(">")[1].split("<")[0]);
+									}
+									
+//									判断用户是否有achievement
+									if (profileJSON.getJSONObject("profile").has("badges")) {
+										JSONArray achievementsArray = profileJSON.getJSONObject("profile").getJSONArray("badges");
+										achievements = new String[achievementsArray.size()];
+										for (int ach = 0; ach < achievementsArray.size(); ach++) {
+											achievements[ach] = achievementsArray.getJSONObject(ach).getString("title");
+										}
+										bidder.setAchievements(achievements);
+									} else {
+										bidder.setAchievements(null);
+									}
+									profileResponse.close();
+								}
+//								存储竞拍类型 1：Single Bid; 2:BidOMatic
+								if (bid.getInt("t") == 1) {
+									bidder.setType("Single Bid");
+								} else {
+									bidder.setType("BidOMatic");
+								}
+								bidder.setId(bid.getInt("id"));
+								bidder.setPrice(bid.getString("a"));
+								bidder.setUname(bid.getString("u"));
+								bidder.setBidTime(dateFormat.format(new Date()));
+								bidders.add(bidder);
+								System.out.println("id:" + bidder.getId() + 
+										", Uname:" + bidder.getUname() + 
+										", Price:" + bidder.getPrice() + 
+										", Joined Day:" + bidder.getJoinDay() +
+										", Bid time:" + bidder.getBidTime() + 
+										", Bid type:" + bidder.getType() + 
+										", Bidding on:" + bidder.getBiddingOn() +
+										", Latest win:" + bidder.getLatestWin());
+								for (int a2 = 0; a2 < achievements.length; a2++) {
+									System.out.println(" " + achievements[a2]);
+								}
+							}
+//							更新maxID
+							maxID = latestBidID;
+						} else {
+							System.out.println("采集竞拍价有遗漏，本竞拍品采集结果作废");
+							return;
+						}
+					}
+				}
+			} catch (ClientProtocolException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			} finally {
+				try {
+					httpResponse.close();				
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}
+
 	}
 	
 	public String transferToI(String lb_id) {
