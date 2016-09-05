@@ -34,12 +34,12 @@ public class Quibids {
 		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
-		auctionUrl = "/en/auction-563607340US-C1593-15-voucher-bids";
+		auctionUrl = "/en/auction-202061527US-C8591-25-shell-gift-card";
 		
-		qui.getAuctionInfo(auction, httpClient, auctionUrl);
-		qui.getBids(bidders, httpClient, auction.getAuctionID());
-//		qui.getWinnerInfo(httpClient);
-		qui.writeExcel(auction, bidders);
+//		qui.getAuctionInfo(auction, httpClient, auctionUrl);
+//		qui.getBids(bidders, httpClient, auction.getAuctionID());
+		qui.getWinnerInfo(auction, auctionUrl);
+//		qui.writeExcel(auction, bidders);
 		
 		
 		
@@ -99,35 +99,35 @@ public class Quibids {
 		}
 	}
 	
-	public void getWinnerInfo(CloseableHttpClient httpClient) {
-		HttpPost httpPost = new HttpPost("http://www.quibids.com/ajax/eoa.php");
-		CloseableHttpResponse httpResponse = null;
-		ArrayList<NameValuePair> parameters = new ArrayList<NameValuePair>();
-		parameters.add(new BasicNameValuePair("id","sgunVY"));
-		parameters.add(new BasicNameValuePair("cs","1cb4ca1f0938cdd95554"));
-		parameters.add(new BasicNameValuePair("a","34"));
+	public void getWinnerInfo(Auction auction, String auctionUrl) {
+		Runtime rt = Runtime.getRuntime();  
+        Process p = null;
 		try {
-			httpPost.setEntity(new UrlEncodedFormEntity(parameters));
-			httpResponse = httpClient.execute(httpPost);
-			System.out.println("Status code: " + httpResponse.getStatusLine().getStatusCode());
-			System.out.println("Response body:" + EntityUtils.toString(httpResponse.getEntity()));
-		} catch (UnsupportedEncodingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			p = rt.exec("E:\\java\\phantomjs\\phantomjs.exe c:\\users\\simon\\git\\TestSpider\\src\\quibids\\eoa.js " + 
+					"http://www.quibids.com" + auctionUrl);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		} finally {
-			try {
-				httpResponse.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}	
+		} 
+        InputStream is = p.getInputStream();  
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));  
+        StringBuffer sbf = new StringBuffer();  
+        String tmp = "";  
+        try {
+//			while((tmp = br.readLine())!=null){  
+//			    sbf.append(tmp);  
+//			}
+        	String realBids = br.readLine();
+        	String voucherBids = br.readLine();
+        	String endTime = br.readLine();
+        	
+            System.out.println(realBids);
+            System.out.println(voucherBids);
+            System.out.println(endTime);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}  
 
 	}
 	
