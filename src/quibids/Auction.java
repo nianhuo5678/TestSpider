@@ -7,6 +7,27 @@ public class Auction {
 	private String valuePrice;
 	private String transactionFree;
 	private String returnPolicy;
+	private String realBids;
+	private String voucherBids;
+	private String endTime;
+	public String getRealBids() {
+		return realBids;
+	}
+	public void setRealBids(String realBids) {
+		this.realBids = realBids;
+	}
+	public String getVoucherBids() {
+		return voucherBids;
+	}
+	public void setVoucherBids(String voucherBids) {
+		this.voucherBids = voucherBids;
+	}
+	public String getEndTime() {
+		return endTime;
+	}
+	public void setEndTime(String endTime) {
+		this.endTime = endTime;
+	}
 	public String getAuctionID() {
 		return auctionID;
 	}

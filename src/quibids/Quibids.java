@@ -20,6 +20,7 @@ import net.sf.json.JSONObject;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Random;
 import java.util.stream.IntStream;
@@ -34,12 +35,12 @@ public class Quibids {
 		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
-		auctionUrl = "/en/auction-202061527US-C8591-25-shell-gift-card";
+		auctionUrl = "/en/auction-609681592US-C1593-15-voucher-bids";
 		
-//		qui.getAuctionInfo(auction, httpClient, auctionUrl);
-//		qui.getBids(bidders, httpClient, auction.getAuctionID());
+		qui.getAuctionInfo(auction, httpClient, auctionUrl);
+		qui.getBids(bidders, httpClient, auction.getAuctionID());
 		qui.getWinnerInfo(auction, auctionUrl);
-//		qui.writeExcel(auction, bidders);
+		qui.writeExcel(auction, bidders);
 		
 		
 		
@@ -100,6 +101,7 @@ public class Quibids {
 	}
 	
 	public void getWinnerInfo(Auction auction, String auctionUrl) {
+		System.out.println("Start getWinnerInfo");
 		Runtime rt = Runtime.getRuntime();  
         Process p = null;
 		try {
@@ -120,15 +122,18 @@ public class Quibids {
         	String realBids = br.readLine();
         	String voucherBids = br.readLine();
         	String endTime = br.readLine();
+        	auction.setRealBids(realBids);
+        	auction.setVoucherBids(voucherBids);
+        	auction.setEndTime(endTime);
         	
-            System.out.println(realBids);
-            System.out.println(voucherBids);
-            System.out.println(endTime);
+//            System.out.println(realBids);
+//            System.out.println(voucherBids);
+//            System.out.println(endTime);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}  
-
+        System.out.println("End getWinnerInfo");
 	}
 	
 	public void getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID) {
@@ -291,10 +296,25 @@ public class Quibids {
 	public void writeExcel(Auction auction, ArrayList<Bidder> bidders) {
 		System.out.println("Auction info:");
 		System.out.println("AuctionID:" + auction.getAuctionID() +
-				", Product title: " + auction.getProductTitle());
+				", Product title: " + auction.getProductTitle() +
+				", Value Price: " + auction.getValuePrice() +
+				", Transcation Free: " + auction.getTransactionFree() +
+				", Return Policy:" + auction.getReturnPolicy() +
+				", Real Bids:" + auction.getRealBids() +
+				", Voucher Bids:" + auction.getVoucherBids() +
+				": End Time:" + auction.getEndTime());
+		System.out.println("------------------------------");
+		
 		System.out.println("Bidding history:");
 		for (Bidder b : bidders) {
-			System.out.println("Bidder:" + b.getId() + ", Name: " + b.getUname());
+			System.out.println("Bidder:" + b.getId() + 
+					", Name: " + b.getUname() +
+					", Price:" + b.getPrice() +
+					", Member Since:" + b.getJoinDay() +
+					", Bidding On:" + b.getBiddingOn() +
+					", Latest Win:" + b.getLatestWin() +
+					", Bidding Type:" + b.getType() + 
+					", Achievements:" + Arrays.toString(b.getAchievements()));
 		}
 	}
 }

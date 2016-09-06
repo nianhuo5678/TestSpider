@@ -11,13 +11,15 @@ public class Bidder {
 	private String latestWin;//最近获得的商品
 	private String bidTime;//竞拍的时间
 	private String type;//竞拍的类型，1：Single Bid; 2:BidOMatic
+	private String[] achievements;
+	
 	public String getBidTime() {
 		return bidTime;
 	}
 	public void setBidTime(String bidTime) {
 		this.bidTime = bidTime;
 	}
-	private String[] achievements;
+	
 
 	
 	public String getRemainTime() {
