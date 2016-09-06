@@ -310,6 +310,7 @@ public class Quibids {
 			System.out.println("Bidder:" + b.getId() + 
 					", Name: " + b.getUname() +
 					", Price:" + b.getPrice() +
+					", Bid time:" + b.getBidTime() +
 					", Member Since:" + b.getJoinDay() +
 					", Bidding On:" + b.getBiddingOn() +
 					", Latest Win:" + b.getLatestWin() +
