@@ -11,7 +11,7 @@ public class ChangeAppTimeZone {
 
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");  
 //	    dateFormat.setTimeZone(TimeZone.getTimeZone("CDT"));  
-	    dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+	    dateFormat.setTimeZone(TimeZone.getTimeZone("GMT-5"));
 		System.out.println(dateFormat.format(new Date()));
 	}
 
