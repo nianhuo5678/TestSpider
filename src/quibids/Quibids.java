@@ -35,7 +35,7 @@ public class Quibids {
 		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
-		auctionUrl = "/en/auction-609681592US-C1593-15-voucher-bids";
+		auctionUrl = "/en/auction-997478014US-C6874-10-amc-gift-card";
 		
 		qui.getAuctionInfo(auction, httpClient, auctionUrl);
 		qui.getBids(bidders, httpClient, auction.getAuctionID());
@@ -105,8 +105,10 @@ public class Quibids {
 		Runtime rt = Runtime.getRuntime();  
         Process p = null;
 		try {
-			p = rt.exec("E:\\java\\phantomjs\\phantomjs.exe c:\\users\\simon\\git\\TestSpider\\src\\quibids\\eoa.js " + 
-					"http://www.quibids.com" + auctionUrl);
+//			p = rt.exec("E:\\java\\phantomjs\\phantomjs.exe c:\\users\\simon\\git\\TestSpider\\src\\quibids\\eoa.js " + 
+//					"http://www.quibids.com" + auctionUrl);
+			p = rt.exec("E:\\testtools\\phantomjs\\phantomjs.exe C:\\Users\\NetEase\\git\\TestSpider\\src\\quibids\\eoa.js " + 
+			"http://www.quibids.com" + auctionUrl);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -294,6 +296,42 @@ public class Quibids {
 	}
 	
 	public void writeExcel(Auction auction, ArrayList<Bidder> bidders) {
+		//以竞拍ID为csv文件名
+		String csvFile = "E:\\" + auction.getAuctionID() + ".csv";
+		try {
+			FileWriter fw = new FileWriter(csvFile);
+			fw.write("Auction info:\r\n");
+//			打印auction info表头
+			String auctionHeader = "AuctionID,Product title,Value Price,Transcation Free,Return Policy,"
+					+ "Real Bids,Voucher Bids,End Time,Winner,Last Price\r\n";
+			fw.write(auctionHeader);
+//			打印auction内容
+			String auctionInfo = auction.getAuctionID() + "," + 
+								 auction.getProductTitle() + "," +
+								 auction.getValuePrice() + "," +
+								 auction.getTransactionFree() + "," +
+								 auction.getReturnPolicy() + "," +
+								 auction.getRealBids() + "," +
+								 auction.getVoucherBids() + "," +
+								 auction.getEndTime() + "," +
+								 bidders.get(bidders.size()-1).getUname() + "," +
+								 bidders.get(bidders.size()-1).getPrice() + "\r\n";
+			fw.write(auctionInfo);
+//			打印BiddingHistory
+			fw.write("Bidding history\r\n");
+			
+//			关闭对象
+			fw.flush();
+			fw.close();
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
+		
+		
 		System.out.println("Auction info:");
 		System.out.println("AuctionID:" + auction.getAuctionID() +
 				", Product title: " + auction.getProductTitle() +
@@ -302,7 +340,9 @@ public class Quibids {
 				", Return Policy:" + auction.getReturnPolicy() +
 				", Real Bids:" + auction.getRealBids() +
 				", Voucher Bids:" + auction.getVoucherBids() +
-				": End Time:" + auction.getEndTime());
+				", End Time:" + auction.getEndTime() + 
+				", Winner:" + bidders.get(bidders.size()-1).getUname() +
+				", Last Price:" + bidders.get(bidders.size()-1).getPrice());
 		System.out.println("------------------------------");
 		
 		System.out.println("Bidding history:");
