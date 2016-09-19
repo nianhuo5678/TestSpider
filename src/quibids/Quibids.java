@@ -36,13 +36,13 @@ public class Quibids {
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
 		auctionUrl = "/en/auction-997478014US-C6874-10-amc-gift-card";
+		int cats = 17; //17:gitf cart;  12:Vouchers & Limit Busters 
 		
-		qui.getAuctionInfo(auction, httpClient, auctionUrl);
-		qui.getBids(bidders, httpClient, auction.getAuctionID());
-		qui.getWinnerInfo(auction, auctionUrl);
-		qui.writeExcel(auction, bidders);
-		
-		
+//		qui.getAuctionInfo(auction, httpClient, auctionUrl);
+//		qui.getBids(bidders, httpClient, auction.getAuctionID());
+//		qui.getWinnerInfo(auction, auctionUrl);
+//		qui.writeExcel(auction, bidders);
+		qui.getAuctionID(cats);
 		
 		try {
 			httpClient.close();
@@ -50,11 +50,49 @@ public class Quibids {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-
-		
 	}
 
+	public int getAuctionID(int cats) {
+		int auctionID = 0;
+		CloseableHttpClient httpClientAuctionID = HttpClients.createDefault();
+		CloseableHttpResponse httpResponse = null;
+		HttpEntity httpEntity = null;
+		HttpPost httpPost = new HttpPost("http://www.quibids.com/ajax/spots.php");
+		ArrayList<NameValuePair> parameters = new ArrayList<NameValuePair>();
+		parameters.add(new BasicNameValuePair("a","h"));
+		parameters.add(new BasicNameValuePair("type", "ending"));
+		parameters.add(new BasicNameValuePair("tab", "0"));
+		parameters.add(new BasicNameValuePair("cats[]", String.valueOf(cats)));
+		parameters.add(new BasicNameValuePair("sort","endingsoon"));
+		parameters.add(new BasicNameValuePair("p","1"));
+		parameters.add(new BasicNameValuePair("v","g"));
+		try {
+			httpPost.setEntity(new UrlEncodedFormEntity(parameters));
+			httpResponse = httpClientAuctionID.execute(httpPost);
+			JSONArray auctions = JSONObject.fromObject(EntityUtils.toString(httpResponse.getEntity())).getJSONArray("Auctions");
+			auctionID = auctions.getJSONObject(0).getInt("id");
+			System.out.println("ID: " + auctionID);
+//			System.out.println(EntityUtils.toString(httpResponse.getEntity()));
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ClientProtocolException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				httpResponse.close();
+				httpClientAuctionID.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return auctionID;
+	}
 	
 	public void getAuctionInfo(Auction auction, CloseableHttpClient httpClient, String auctionUrl) {
 		
