@@ -72,6 +72,7 @@ public class Quibids {
 			JSONArray auctions = JSONObject.fromObject(EntityUtils.toString(httpResponse.getEntity())).getJSONArray("Auctions");
 			auctionID = auctions.getJSONObject(0).getInt("id");
 			System.out.println("ID: " + auctionID);
+			
 //			System.out.println(EntityUtils.toString(httpResponse.getEntity()));
 		} catch (UnsupportedEncodingException e) {
 			// TODO Auto-generated catch block
