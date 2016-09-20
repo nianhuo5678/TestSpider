@@ -36,13 +36,15 @@ public class Quibids {
 		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
-		auctionUrl = "/en/auction-768710656US-C1433-15-walmart-gift-card";
+//		auctionUrl = "/en/auction-768710656US-C1433-15-walmart-gift-card";
 		int cats = 17; //17:gitf cart;  12:Vouchers & Limit Busters 
-//		auctionUrl = qui.getAuctionUrl(cats);
-		qui.getAuctionInfo(auction, httpClient, auctionUrl);
-		qui.getBids(bidders, httpClient, auction.getAuctionID());
-		qui.getWinnerInfo(auction, auctionUrl);
-		qui.writeExcel(auction, bidders);
+		for (int i = 0; i < 5; i++) {
+			auctionUrl = qui.getAuctionUrl(cats);
+			qui.getAuctionInfo(auction, httpClient, auctionUrl);
+			qui.getBids(bidders, httpClient, auction.getAuctionID());
+			qui.getWinnerInfo(auction, auctionUrl);
+			qui.writeExcel(auction, bidders);
+		}
 		try {
 			httpClient.close();
 		} catch (IOException e) {
@@ -101,7 +103,7 @@ public class Quibids {
 	}
 	
 	public void getAuctionInfo(Auction auction, CloseableHttpClient httpClient, String auctionUrl) {
-		
+		System.out.println("auction: http://www.quibids.com" +  auctionUrl);
 		String auctionID, productTitle, valuePrice, transactionFree, returnPolicy, auctionStatus;
 //		Auction auction = new Auction();
 		HttpGet httpGet = new HttpGet("http://www.quibids.com" + auctionUrl);
@@ -123,16 +125,14 @@ public class Quibids {
 			auction.setAuctionID(auctionID);
 			auction.setProductTitle(doc.getElementById("product_title").text());
 			auction.setValuePrice(doc.getElementsByClass("float-right").get(0).text());
-//			处理product description内容有4个或3个的情况
-			if (doc.getElementById("product_description").getElementsByTag("p").size() == 3) {
-				auction.setTransactionFree(doc.getElementById("product_description").getElementsByTag("p").get(1).text().substring(17));
-				auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(2).text().substring(15));
-			} else {
-				auction.setTransactionFree(doc.getElementById("product_description").getElementsByTag("p").get(2).text().substring(17));
-				auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(3).text().substring(15));
-			}	
-//			获取竞拍价
-//			this.getBids(httpClient, auctionID);
+			for (int i = 0; i < doc.getElementById("product_description").getElementsByTag("p").size(); i++) {
+				if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Transaction Fee")) {
+					auction.setTransactionFree(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(17));
+				}
+				if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Return Policy")) {
+					auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(15));
+				}
+			}
 		} catch (ClientProtocolException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -188,6 +188,7 @@ public class Quibids {
 	}
 	
 	public void getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID) {
+		System.out.println("Start GetBids");
 		JSONObject jO;
 //		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		String[] achievements = null;
@@ -332,7 +333,7 @@ public class Quibids {
 				}
 			}
 		}
-
+		System.out.println("End get bids. " + bidders.size() + " bidder is added");
 	}
 	
 	public String transferToI(String lb_id) {
@@ -347,8 +348,36 @@ public class Quibids {
 	}
 	
 	public void writeExcel(Auction auction, ArrayList<Bidder> bidders) {
+		
+		System.out.println("Auction info:");
+		System.out.println("AuctionID:" + auction.getAuctionID() +
+				", Product title: " + auction.getProductTitle() +
+				", Value Price: " + auction.getValuePrice() +
+				", Transcation Free: " + auction.getTransactionFree() +
+				", Return Policy:" + auction.getReturnPolicy() +
+				", Real Bids:" + auction.getRealBids() +
+				", Voucher Bids:" + auction.getVoucherBids() +
+				", End Time:" + auction.getEndTime() + 
+				", Winner:" + bidders.get(bidders.size()-1).getUname() +
+				", Last Price:" + bidders.get(bidders.size()-1).getPrice());
+		System.out.println("------------------------------");
+		
+		System.out.println("Bidding history:");
+		for (Bidder b : bidders) {
+			System.out.println("Bidder:" + b.getId() + 
+					", Name: " + b.getUname() +
+					", Price:" + b.getPrice() +
+					", Bid time:" + b.getBidTime() +
+					", Member Since:" + b.getJoinDay() +
+					", Bidding On:" + b.getBiddingOn() +
+					", Latest Win:" + b.getLatestWin() +
+					", Bidding Type:" + b.getType() + 
+					", Achievements:" + Arrays.toString(b.getAchievements()));
+		}
+		
+		
 		//以竞拍ID为csv文件名
-		String csvFile = "E:\\" + auction.getAuctionID() + ".csv";
+		String csvFile = "E:\\quibids\\" + auction.getAuctionID() + ".csv";
 		try {
 			FileWriter fw = new FileWriter(csvFile);
 			fw.write("Auction info:\r\n");
@@ -380,10 +409,12 @@ public class Quibids {
 						"," + b.getJoinDay() +
 						"," + b.getBiddingOn() +
 						"," + b.getLatestWin() +
-						"," + b.getType() + 
-						",";
-				for (int i = 0; i < b.getAchievements().length; i++ ) {
-					bidder = bidder + b.getAchievements()[i].replaceAll(",", "") + ",";
+						"," + b.getType();
+				if (b.getAchievements() != null) {
+					bidder = bidder + ";";
+					for (int i = 0; i < b.getAchievements().length; i++ ) {
+						bidder = bidder + b.getAchievements()[i].replaceAll(",", "") + ",";
+					}
 				}
 				bidder = bidder + "\r\n";
 				fw.write(bidder);
@@ -400,30 +431,6 @@ public class Quibids {
 		
 		
 		
-//		System.out.println("Auction info:");
-//		System.out.println("AuctionID:" + auction.getAuctionID() +
-//				", Product title: " + auction.getProductTitle() +
-//				", Value Price: " + auction.getValuePrice() +
-//				", Transcation Free: " + auction.getTransactionFree() +
-//				", Return Policy:" + auction.getReturnPolicy() +
-//				", Real Bids:" + auction.getRealBids() +
-//				", Voucher Bids:" + auction.getVoucherBids() +
-//				", End Time:" + auction.getEndTime() + 
-//				", Winner:" + bidders.get(bidders.size()-1).getUname() +
-//				", Last Price:" + bidders.get(bidders.size()-1).getPrice());
-//		System.out.println("------------------------------");
-//		
-//		System.out.println("Bidding history:");
-//		for (Bidder b : bidders) {
-//			System.out.println("Bidder:" + b.getId() + 
-//					", Name: " + b.getUname() +
-//					", Price:" + b.getPrice() +
-//					", Bid time:" + b.getBidTime() +
-//					", Member Since:" + b.getJoinDay() +
-//					", Bidding On:" + b.getBiddingOn() +
-//					", Latest Win:" + b.getLatestWin() +
-//					", Bidding Type:" + b.getType() + 
-//					", Achievements:" + Arrays.toString(b.getAchievements()));
-//		}
+
 	}
 }
