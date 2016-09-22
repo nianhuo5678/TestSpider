@@ -239,7 +239,7 @@ public class Quibids {
 				String responseBody = EntityUtils.toString(entity).split("\\(")[1].split("\\)")[0];
 				jO = JSONObject.fromObject(responseBody);
 //				¾ºÅÄ½áÊøÌø³öwhileÑ­»·
-				if (responseBody.contains("Completed") || responseBody.equals("{\"a\":[]}")) {
+				if (responseBody.contains("Completed") || responseBody.equals("{\"a\":[]}") || auctionStatus.equals("Ended")) {
 					System.out.println("End get bids. " + bidders.size() + " bidder is added");
 					return true;
 				}
