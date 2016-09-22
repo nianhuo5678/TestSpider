@@ -197,7 +197,7 @@ public class Quibids {
 		int maxID = 0;
 		int latestBidID = 0;
 		boolean existed = false;
-		boolean locked = false;
+		String auctionStatus = "Bid Now";
 		i = this.transferToI(auctionID);
 		SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 		String url = "http://www.quibids.com/ajax/u.php?b=" + b + 
@@ -216,10 +216,10 @@ public class Quibids {
 		while (true) {
 			
 //			获取是否被lock,lock的时间
-			if (!locked && bidders.size() > 0) {
-				locked = this.auctionStatuc(auctionID, httpClient);
-				System.out.println("Bid now");
-				if (locked) {
+			if (auctionStatus.equals("Bid Now") && bidders.size() > 0) {
+				auctionStatus = this.auctionStatuc(auctionID, httpClient);
+				System.out.println(auctionStatus);
+				if (auctionStatus.equals("Locked")) {
 					auction.setLockTime(dateFormat.format(new Date()));
 					System.out.println("Locked at: " + dateFormat.format(new Date()));
 				}
@@ -357,7 +357,7 @@ public class Quibids {
 		return i;
 	}
 	
-	public boolean auctionStatuc (String auctionID, CloseableHttpClient httpClient) {
+	public String auctionStatuc (String auctionID, CloseableHttpClient httpClient) {
 //		如果竞拍被lock，返回当前时间，否则返回null
 		HttpGet httpGet = new HttpGet("http://www.quibids.com/en/auction-" + auctionID );
 		CloseableHttpResponse httpResponse = null;
@@ -365,9 +365,11 @@ public class Quibids {
 			httpResponse = httpClient.execute(httpGet);
 			String html = EntityUtils.toString(httpResponse.getEntity());
 			if (html.contains("Locked")) {
-				return true;
+				return "Locked";
+			} else if (html.contains("Ended")) {
+				return "Ended";
 			} else {
-				return false;
+				return "Bid Now";
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -380,7 +382,7 @@ public class Quibids {
 				e.printStackTrace();
 			}
 		}
-		return false;
+		return null;
 	}
 	
 	public void writeExcel(Auction auction, ArrayList<Bidder> bidders) {
