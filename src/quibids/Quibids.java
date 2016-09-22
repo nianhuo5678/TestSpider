@@ -415,7 +415,7 @@ public class Quibids {
 			fw.write("Auction info:\r\n");
 //			打印auction info表头
 			String auctionHeader = "AuctionID,Product title,Value Price,Transcation Free,Return Policy,"
-					+ "Real Bids,Voucher Bids,End Time,Winner,Last Price\r\n";
+					+ "Real Bids,Voucher Bids,End Time,Winner,Last Price,Lock Time\r\n";
 			fw.write(auctionHeader);
 //			打印auction内容
 			String auctionInfo = auction.getAuctionID() + "," + 
@@ -427,7 +427,8 @@ public class Quibids {
 								 auction.getVoucherBids() + "," +
 								 auction.getEndTime() + "," +
 								 bidders.get(bidders.size()-1).getUname() + "," +
-								 bidders.get(bidders.size()-1).getPrice() + "\r\n";
+								 bidders.get(bidders.size()-1).getPrice() + "," + 
+								 auction.getLockTime() + "\r\n";
 			fw.write(auctionInfo);
 //			打印BiddingHistory表头及内容
 			fw.write("Bidding history\r\n");
