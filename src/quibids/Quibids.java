@@ -38,14 +38,18 @@ public class Quibids {
 		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		CloseableHttpClient httpClient = HttpClients.createDefault();
 		String auctionUrl;
+		boolean getAllBids = false;
 //		auctionUrl = "/en/auction-768710656US-C1433-15-walmart-gift-card";
 		int cats = 17; //17:gitf cart;  12:Vouchers & Limit Busters 
 		for (int i = 0; i < 5; i++) {
 			auctionUrl = qui.getAuctionUrl(cats);
 			qui.getAuctionInfo(auction, httpClient, auctionUrl);
-			qui.getBids(bidders, httpClient, auction.getAuctionID(), auction);
+			getAllBids = qui.getBids(bidders, httpClient, auction.getAuctionID(), auction);
 			qui.getWinnerInfo(auction, auctionUrl);
-			qui.writeExcel(auction, bidders);
+			if (getAllBids) {
+				qui.writeExcel(auction, bidders);
+			}
+			
 		}
 		try {
 			httpClient.close();
@@ -184,7 +188,7 @@ public class Quibids {
         System.out.println("End getWinnerInfo");
 	}
 	
-	public void getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID, Auction auction) {
+	public boolean getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID, Auction auction) {
 		System.out.println("Start GetBids");
 		JSONObject jO;
 //		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
@@ -223,7 +227,7 @@ public class Quibids {
 			
 //			每次获竞拍信息间隔时间
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(800);
 			} catch (InterruptedException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
@@ -236,7 +240,8 @@ public class Quibids {
 				jO = JSONObject.fromObject(responseBody);
 //				竞拍结束跳出while循环
 				if (responseBody.contains("Completed") || responseBody.equals("{\"a\":[]}")) {
-					break;
+					System.out.println("End get bids. " + bidders.size() + " bidder is added");
+					return true;
 				}
 				if (responseBody.contains("bh")) {
 //					竞拍价更新
@@ -320,7 +325,7 @@ public class Quibids {
 							maxID = latestBidID;
 						} else {
 							System.out.println("采集竞拍价有遗漏，本竞拍品采集结果作废");
-							return;
+							return false;
 						}
 					}
 				}
@@ -339,7 +344,6 @@ public class Quibids {
 				}
 			}
 		}
-		System.out.println("End get bids. " + bidders.size() + " bidder is added");
 	}
 	
 	public String transferToI(String lb_id) {
