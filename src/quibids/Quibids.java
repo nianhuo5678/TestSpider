@@ -26,6 +26,8 @@ import java.util.Random;
 import java.util.TimeZone;
 import java.util.stream.IntStream;
 
+import javax.xml.ws.Response;
+
 public class Quibids {
 	
 	public static void main(String[] args) {
@@ -41,7 +43,7 @@ public class Quibids {
 		for (int i = 0; i < 5; i++) {
 			auctionUrl = qui.getAuctionUrl(cats);
 			qui.getAuctionInfo(auction, httpClient, auctionUrl);
-			qui.getBids(bidders, httpClient, auction.getAuctionID());
+			qui.getBids(bidders, httpClient, auction.getAuctionID(), auction);
 			qui.getWinnerInfo(auction, auctionUrl);
 			qui.writeExcel(auction, bidders);
 		}
@@ -117,11 +119,6 @@ public class Quibids {
 			Document doc = Jsoup.parse(html);
 //			获取并存储竞拍信息
 			auctionID = doc.select("span[itemprop='title']").get(2).text().substring(10);
-//			productTitle = doc.getElementById("product_title").text();
-//			valuePrice = doc.getElementsByClass("float-right").get(0).text();
-//			transactionFree = doc.getElementById("product_description").getElementsByTag("p").get(1).text().substring(17);
-//			returnPolicy = doc.getElementById("product_description").getElementsByTag("p").get(2).text().substring(15);
-//			auctionStatus = doc.getElementById("auction-left").getElementsByTag("a").get(0).text();
 			auction.setAuctionID(auctionID);
 			auction.setProductTitle(doc.getElementById("product_title").text());
 			auction.setValuePrice(doc.getElementsByClass("float-right").get(0).text());
@@ -187,7 +184,7 @@ public class Quibids {
         System.out.println("End getWinnerInfo");
 	}
 	
-	public void getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID) {
+	public void getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID, Auction auction) {
 		System.out.println("Start GetBids");
 		JSONObject jO;
 //		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
@@ -196,6 +193,7 @@ public class Quibids {
 		int maxID = 0;
 		int latestBidID = 0;
 		boolean existed = false;
+		boolean locked = false;
 		i = this.transferToI(auctionID);
 		SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
 		String url = "http://www.quibids.com/ajax/u.php?b=" + b + 
@@ -209,7 +207,20 @@ public class Quibids {
 		HttpGet profileGet = null;
 		CloseableHttpResponse httpResponse = null;	
 		CloseableHttpResponse profileResponse = null;
+//		设置时区
+		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT-5"));
 		while (true) {
+			
+//			获取是否被lock,lock的时间
+			if (!locked && bidders.size() > 0) {
+				locked = this.auctionStatuc(auctionID, httpClient);
+				System.out.println("Bid now");
+				if (locked) {
+					auction.setLockTime(dateFormat.format(new Date()));
+					System.out.println("Locked at: " + dateFormat.format(new Date()));
+				}
+			}
+			
 //			每次获竞拍信息间隔时间
 			try {
 				Thread.sleep(1000);
@@ -224,10 +235,7 @@ public class Quibids {
 				String responseBody = EntityUtils.toString(entity).split("\\(")[1].split("\\)")[0];
 				jO = JSONObject.fromObject(responseBody);
 //				竞拍结束跳出while循环
-				if (responseBody.contains("Completed")) {
-					for (Bidder b1 : bidders) {
-//						System.out.println("id:" + b1.getId() + ", uname:" + b1.getUname() + ", price:" + b1.getPrice());
-					}
+				if (responseBody.contains("Completed") || responseBody.equals("{\"a\":[]}")) {
 					break;
 				}
 				if (responseBody.contains("bh")) {
@@ -294,8 +302,6 @@ public class Quibids {
 								bidder.setId(bid.getInt("id"));
 								bidder.setPrice(bid.getString("a"));
 								bidder.setUname(bid.getString("u"));
-//								设置时区
-								dateFormat.setTimeZone(TimeZone.getTimeZone("GMT-5"));
 								bidder.setBidTime(dateFormat.format(new Date()));
 								bidders.add(bidder);
 //								System.out.println("id:" + bidder.getId() + 
@@ -347,6 +353,32 @@ public class Quibids {
 		return i;
 	}
 	
+	public boolean auctionStatuc (String auctionID, CloseableHttpClient httpClient) {
+//		如果竞拍被lock，返回当前时间，否则返回null
+		HttpGet httpGet = new HttpGet("http://www.quibids.com/en/auction-" + auctionID );
+		CloseableHttpResponse httpResponse = null;
+		try {
+			httpResponse = httpClient.execute(httpGet);
+			String html = EntityUtils.toString(httpResponse.getEntity());
+			if (html.contains("Locked")) {
+				return true;
+			} else {
+				return false;
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				httpResponse.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
+	
 	public void writeExcel(Auction auction, ArrayList<Bidder> bidders) {
 		
 		System.out.println("Auction info:");
@@ -362,18 +394,18 @@ public class Quibids {
 				", Last Price:" + bidders.get(bidders.size()-1).getPrice());
 		System.out.println("------------------------------");
 		
-		System.out.println("Bidding history:");
-		for (Bidder b : bidders) {
-			System.out.println("Bidder:" + b.getId() + 
-					", Name: " + b.getUname() +
-					", Price:" + b.getPrice() +
-					", Bid time:" + b.getBidTime() +
-					", Member Since:" + b.getJoinDay() +
-					", Bidding On:" + b.getBiddingOn() +
-					", Latest Win:" + b.getLatestWin() +
-					", Bidding Type:" + b.getType() + 
-					", Achievements:" + Arrays.toString(b.getAchievements()));
-		}
+//		System.out.println("Bidding history:");
+//		for (Bidder b : bidders) {
+//			System.out.println("Bidder:" + b.getId() + 
+//					", Name: " + b.getUname() +
+//					", Price:" + b.getPrice() +
+//					", Bid time:" + b.getBidTime() +
+//					", Member Since:" + b.getJoinDay() +
+//					", Bidding On:" + b.getBiddingOn() +
+//					", Latest Win:" + b.getLatestWin() +
+//					", Bidding Type:" + b.getType() + 
+//					", Achievements:" + Arrays.toString(b.getAchievements()));
+//		}
 		
 		
 		//以竞拍ID为csv文件名
