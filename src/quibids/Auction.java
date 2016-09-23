@@ -11,7 +11,6 @@ public class Auction {
 	private String voucherBids;
 	private String endTime;
 	private String lockTime;
-	
 	public String getLockTime() {
 		return lockTime;
 	}
