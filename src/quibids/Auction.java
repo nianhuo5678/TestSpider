@@ -10,6 +10,14 @@ public class Auction {
 	private String realBids;
 	private String voucherBids;
 	private String endTime;
+	private String lockTime;
+	
+	public String getLockTime() {
+		return lockTime;
+	}
+	public void setLockTime(String lockTime) {
+		this.lockTime = lockTime;
+	}
 	public String getRealBids() {
 		return realBids;
 	}
