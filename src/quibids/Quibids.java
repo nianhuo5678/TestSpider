@@ -155,10 +155,10 @@ public class Quibids {
 		Runtime rt = Runtime.getRuntime();  
         Process p = null;
 		try {
-			p = rt.exec("E:\\java\\phantomjs\\phantomjs.exe c:\\users\\simon\\git\\TestSpider\\src\\quibids\\eoa.js " + 
-					"http://www.quibids.com" + auctionUrl);
-//			p = rt.exec("E:\\testtools\\phantomjs\\phantomjs.exe C:\\Users\\NetEase\\git\\TestSpider\\src\\quibids\\eoa.js " + 
-//			"http://www.quibids.com" + auctionUrl);
+//			p = rt.exec("E:\\java\\phantomjs\\phantomjs.exe c:\\users\\simon\\git\\TestSpider\\src\\quibids\\eoa.js " + 
+//					"http://www.quibids.com" + auctionUrl);
+			p = rt.exec("E:\\testtools\\phantomjs\\phantomjs.exe C:\\Users\\NetEase\\git\\TestSpider\\src\\quibids\\eoa.js " + 
+			"http://www.quibids.com" + auctionUrl);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -223,7 +223,7 @@ public class Quibids {
 					auction.setLockTime(dateFormat.format(new Date()));
 					System.out.println("Locked at: " + dateFormat.format(new Date()));
 				}
-			}
+			} 
 			
 //			每次获竞拍信息间隔时间
 			try {
