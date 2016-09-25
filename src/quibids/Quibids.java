@@ -16,50 +16,74 @@ import org.jsoup.nodes.Document;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+import net.sf.json.util.JSONUtils;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Properties;
 import java.util.Random;
 import java.util.TimeZone;
 import java.util.stream.IntStream;
 
-import javax.xml.ws.Response;
 
 public class Quibids {
+	
+	private static Properties properties;
+	
+	public Quibids() {
+		super();
+		try {
+			FileReader reader = new FileReader("conf.properties");
+			properties = new Properties();
+			properties.load(reader);
+		} catch (FileNotFoundException e1) {
+			// TODO Auto-generated catch block
+			System.out.println("can not find file conf.properties");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			System.out.println("can not load conf.properties");
+		}
+	}
 	
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 
-		Quibids qui = new Quibids();
-		Auction auction = new Auction();
-		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
-		CloseableHttpClient httpClient = HttpClients.createDefault();
+		CloseableHttpClient httpClient = null;
+		Thread tAuction;
 		String auctionUrl;
-		boolean getAllBids = false;
-//		auctionUrl = "/en/auction-768710656US-C1433-15-walmart-gift-card";
-		int cats = 17; //17:gitf cart;  12:Vouchers & Limit Busters 
-		for (int i = 0; i < 5; i++) {
+		boolean getAllBids;
+		Quibids qui = new Quibids();
+		String cats = "12";
+		cats = properties.getProperty("cats");
+		for (int i = 0; i < 100; i++) {
+			System.out.println("The " + i + " auction");
+			httpClient = HttpClients.createDefault();
+			Auction auction = new Auction();
+			getAllBids = false;
+			ArrayList<Bidder> bidders = new ArrayList<Bidder>();
+			tAuction = new Thread(auction);
 			auctionUrl = qui.getAuctionUrl(cats);
 			qui.getAuctionInfo(auction, httpClient, auctionUrl);
-			getAllBids = qui.getBids(bidders, httpClient, auction.getAuctionID(), auction);
-			qui.getWinnerInfo(auction, auctionUrl);
-			if (getAllBids) {
-				qui.writeExcel(auction, bidders);
+			getAllBids = qui.getBids(bidders, httpClient, auction.getAuctionID(), auction, tAuction);
+			if (!getAllBids) {
+				continue;
 			}
+			qui.getWinnerInfo(auction, auctionUrl);
+			qui.writeExcel(auction, bidders);
 			
-		}
-		try {
-			httpClient.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			try {
+				httpClient.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 
-	public String getAuctionUrl(int cats) {
+	public String getAuctionUrl(String cats) {
 		String auctionUrl = null;
 		String html = null;
 		CloseableHttpClient httpClientAuctionID = HttpClients.createDefault();
@@ -70,7 +94,7 @@ public class Quibids {
 		parameters.add(new BasicNameValuePair("a","h"));
 		parameters.add(new BasicNameValuePair("type", "ending"));
 		parameters.add(new BasicNameValuePair("tab", "0"));
-		parameters.add(new BasicNameValuePair("cats[]", String.valueOf(cats)));
+		parameters.add(new BasicNameValuePair("cats[]", cats));
 		parameters.add(new BasicNameValuePair("sort","endingsoon"));
 		parameters.add(new BasicNameValuePair("p","1"));
 		parameters.add(new BasicNameValuePair("v","g"));
@@ -109,7 +133,7 @@ public class Quibids {
 	}
 	
 	public void getAuctionInfo(Auction auction, CloseableHttpClient httpClient, String auctionUrl) {
-		System.out.println("auction: http://www.quibids.com" +  auctionUrl);
+		System.out.println(new Date() + " auction: http://www.quibids.com" +  auctionUrl);
 		String auctionID, productTitle, valuePrice, transactionFree, returnPolicy, auctionStatus;
 //		Auction auction = new Auction();
 		HttpGet httpGet = new HttpGet("http://www.quibids.com" + auctionUrl);
@@ -151,14 +175,14 @@ public class Quibids {
 	}
 	
 	public void getWinnerInfo(Auction auction, String auctionUrl) {
-		System.out.println("Start getWinnerInfo");
+		System.out.println(new Date() + " Start getWinnerInfo");
 		Runtime rt = Runtime.getRuntime();  
         Process p = null;
 		try {
-//			p = rt.exec("E:\\java\\phantomjs\\phantomjs.exe c:\\users\\simon\\git\\TestSpider\\src\\quibids\\eoa.js " + 
-//					"http://www.quibids.com" + auctionUrl);
-			p = rt.exec("E:\\testtools\\phantomjs\\phantomjs.exe C:\\Users\\NetEase\\git\\TestSpider\\src\\quibids\\eoa.js " + 
-			"http://www.quibids.com" + auctionUrl);
+			p = rt.exec( properties.getProperty("phantomjsPath") + " " + properties.getProperty("eoaPath") + " " +
+					"http://www.quibids.com" + auctionUrl);
+//			p = rt.exec("E:\\testtools\\phantomjs\\phantomjs.exe C:\\Users\\NetEase\\git\\TestSpider\\src\\quibids\\eoa.js " + 
+//			"http://www.quibids.com" + auctionUrl);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -188,8 +212,9 @@ public class Quibids {
         System.out.println("End getWinnerInfo");
 	}
 	
-	public boolean getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID, Auction auction) {
-		System.out.println("Start GetBids");
+	public boolean getBids(ArrayList<Bidder> bidders, CloseableHttpClient httpClient, String auctionID, Auction auction,Thread tAuction) {
+		tAuction.start();
+		System.out.println(new Date() + " Start GetBids");
 		JSONObject jO;
 //		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 		String[] achievements = null;
@@ -214,20 +239,9 @@ public class Quibids {
 //		设置时区
 		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT-5"));
 		while (true) {
-			
-//			获取是否被lock,lock的时间
-			if (auctionStatus.equals("Bid Now") && bidders.size() > 0) {
-				auctionStatus = this.auctionStatuc(auctionID, httpClient);
-				System.out.println(auctionStatus);
-				if (auctionStatus.equals("Locked")) {
-					auction.setLockTime(dateFormat.format(new Date()));
-					System.out.println("Locked at: " + dateFormat.format(new Date()));
-				}
-			} 
-			
 //			每次获竞拍信息间隔时间
 			try {
-				Thread.sleep(800);
+				Thread.sleep(1000);
 			} catch (InterruptedException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
@@ -237,10 +251,16 @@ public class Quibids {
 				HttpEntity entity = httpResponse.getEntity();
 //				分割字符串，提取出 （ 和 ）之间的json字符串
 				String responseBody = EntityUtils.toString(entity).split("\\(")[1].split("\\)")[0];
+//				检查提取出的字符串是否合法的json格式，如果不合法，continue
+				if (!JSONUtils.mayBeJSON(responseBody)) {
+					continue;
+				}
 				jO = JSONObject.fromObject(responseBody);
 //				竞拍结束跳出while循环
 				if (responseBody.contains("Completed") || responseBody.equals("{\"a\":[]}") || auctionStatus.equals("Ended")) {
+					System.out.println("stop thread after auction is ended");
 					System.out.println("End get bids. " + bidders.size() + " bidder is added");
+					tAuction.interrupt();
 					return true;
 				}
 				if (responseBody.contains("bh")) {
@@ -275,6 +295,9 @@ public class Quibids {
 									profileGet = new HttpGet(profileUrl);
 									profileResponse = httpClient.execute(profileGet);
 									String profileStr = EntityUtils.toString(profileResponse.getEntity());
+									if (!JSONUtils.mayBeJSON(profileStr)) {
+										continue;
+									}
 									JSONObject profileJSON = JSONObject.fromObject(profileStr);
 									bidder.setJoinDay(profileJSON.getJSONObject("profile").getString("joined"));
 									bidder.setBiddingOn(profileJSON.getJSONObject("profile").getString("biddingOn"));
@@ -325,6 +348,7 @@ public class Quibids {
 							maxID = latestBidID;
 						} else {
 							System.out.println("采集竞拍价有遗漏，本竞拍品采集结果作废");
+							tAuction.interrupt();
 							return false;
 						}
 					}
@@ -357,33 +381,33 @@ public class Quibids {
 		return i;
 	}
 	
-	public String auctionStatuc (String auctionID, CloseableHttpClient httpClient) {
-//		如果竞拍被lock，返回当前时间，否则返回null
-		HttpGet httpGet = new HttpGet("http://www.quibids.com/en/auction-" + auctionID );
-		CloseableHttpResponse httpResponse = null;
-		try {
-			httpResponse = httpClient.execute(httpGet);
-			String html = EntityUtils.toString(httpResponse.getEntity());
-			if (html.contains("Locked")) {
-				return "Locked";
-			} else if (html.contains("Ended")) {
-				return "Ended";
-			} else {
-				return "Bid Now";
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			try {
-				httpResponse.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		return null;
-	}
+//	public String auctionStatuc (String auctionID, CloseableHttpClient httpClient) {
+////		如果竞拍被lock，返回当前时间，否则返回null
+//		HttpGet httpGet = new HttpGet("http://www.quibids.com/en/auction-" + auctionID );
+//		CloseableHttpResponse httpResponse = null;
+//		try {
+//			httpResponse = httpClient.execute(httpGet);
+//			String html = EntityUtils.toString(httpResponse.getEntity());
+//			if (html.contains("Locked")) {
+//				return "Locked";
+//			} else if (html.contains("Ended")) {
+//				return "Ended";
+//			} else {
+//				return "Bid Now";
+//			}
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} finally {
+//			try {
+//				httpResponse.close();
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//		}
+//		return null;
+//	}
 	
 	public void writeExcel(Auction auction, ArrayList<Bidder> bidders) {
 		
@@ -450,7 +474,7 @@ public class Quibids {
 						"," + b.getLatestWin() +
 						"," + b.getType();
 				if (b.getAchievements() != null) {
-					bidder = bidder + ";";
+					bidder = bidder + ",";
 					for (int i = 0; i < b.getAchievements().length; i++ ) {
 						bidder = bidder + b.getAchievements()[i].replaceAll(",", "") + ",";
 					}
