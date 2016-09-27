@@ -21,12 +21,9 @@ import net.sf.json.util.JSONUtils;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.Properties;
-import java.util.Random;
 import java.util.TimeZone;
-import java.util.stream.IntStream;
 
 
 public class Quibids {
@@ -58,7 +55,7 @@ public class Quibids {
 		Quibids qui = new Quibids();
 		String cats = "12";
 		cats = properties.getProperty("cats");
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < 99; i++) {
 			System.out.println("The " + i + " auction");
 			httpClient = HttpClients.createDefault();
 			Auction auction = new Auction();
