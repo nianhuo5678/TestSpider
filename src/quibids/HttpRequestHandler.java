@@ -24,20 +24,28 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.logging.*;
 
 public class HttpRequestHandler {
+	
+	CloseableHttpClient httpClient = null;
+	Logger logger = null;
+	
+	public HttpRequestHandler() {
+		httpClient = HttpClients.createDefault();
+	}
 
 	/*
 	 * 发送httpGet请求的方法
 	 * 参数：httpClient，url
 	 * 返回：httpResponse字符串
 	 */
-	public String getHttpGetResponseJSON(CloseableHttpClient httpClient, String url) {
+	public String getHttpGetResponseJSON(String url) {
 		String jsonStr = null;
 		CloseableHttpResponse httpResponse = null;
 		HttpGet httpGet = new HttpGet(url);
 		try {
-			httpResponse = httpClient.execute(httpGet);
+			httpResponse = this.httpClient.execute(httpGet);
 			HttpEntity entity = httpResponse.getEntity();
 			jsonStr = EntityUtils.toString(entity);
 			EntityUtils.consume(entity);
@@ -63,13 +71,13 @@ public class HttpRequestHandler {
 	 * 参数：httpClient，url, parameters
 	 * 返回：httpResponse字符串
 	 */
-	public String getHttpPostResponseJSON(CloseableHttpClient httpClient, String url, ArrayList<NameValuePair> parameters) {
+	public String getHttpPostResponseJSON(String url, ArrayList<NameValuePair> parameters) {
 		String jsonStr = null;
 		CloseableHttpResponse httpResponse = null;
 		HttpPost httpPost = new HttpPost(url);
 		try {
 			httpPost.setEntity(new UrlEncodedFormEntity(parameters));
-			httpResponse = httpClient.execute(httpPost);
+			httpResponse = this.httpClient.execute(httpPost);
 			HttpEntity entity = httpResponse.getEntity();
 			jsonStr = EntityUtils.toString(entity);
 			EntityUtils.consume(entity);
@@ -92,15 +100,10 @@ public class HttpRequestHandler {
 		}
 		return jsonStr;
 	}
-	
-	public CloseableHttpClient getHttpClient () {
-		CloseableHttpClient httpClient = HttpClients.createDefault();
-		return httpClient;
-	}
-	
-	public void closeHttpClient(CloseableHttpClient httpClient) {
+		
+	public void closeHttpClient() {
 		try {
-			httpClient.close();
+			this.httpClient.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

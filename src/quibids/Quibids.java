@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class Quibids {
@@ -52,18 +54,19 @@ public class Quibids {
 		Thread tAuction;
 		String auctionUrl;
 		boolean getAllBids;
+		HttpRequestHandler requestHandler = null;
 		Quibids qui = new Quibids();
-		String cats = "12";
-		cats = properties.getProperty("cats");
+		String cats = properties.getProperty("cats");
 		for (int i = 0; i < 99; i++) {
 			System.out.println("The " + i + " auction");
+			requestHandler = new HttpRequestHandler();
 			httpClient = HttpClients.createDefault();
 			Auction auction = new Auction();
 			getAllBids = false;
 			ArrayList<Bidder> bidders = new ArrayList<Bidder>();
 			tAuction = new Thread(auction);
-			auctionUrl = qui.getAuctionUrl(cats);
-			qui.getAuctionInfo(auction, httpClient, auctionUrl);
+			auctionUrl = qui.getAuctionUrl(requestHandler, cats);
+			qui.getAuctionInfo(auction, requestHandler, auctionUrl);
 			getAllBids = qui.getBids(bidders, httpClient, auction.getAuctionID(), auction, tAuction);
 			if (!getAllBids) {
 				continue;
@@ -80,13 +83,11 @@ public class Quibids {
 		}
 	}
 
-	public String getAuctionUrl(String cats) {
+	public String getAuctionUrl(HttpRequestHandler requestHandler, String cats) {
 		String auctionUrl = null;
+		String jsonStr = null;
 		String html = null;
-		CloseableHttpClient httpClientAuctionID = HttpClients.createDefault();
-		CloseableHttpResponse httpResponse = null;
-		HttpEntity httpEntity = null;
-		HttpPost httpPost = new HttpPost("http://www.quibids.com/ajax/spots.php");
+		String url = "http://www.quibids.com/ajax/spots.php";
 		ArrayList<NameValuePair> parameters = new ArrayList<NameValuePair>();
 		parameters.add(new BasicNameValuePair("a","h"));
 		parameters.add(new BasicNameValuePair("type", "ending"));
@@ -95,80 +96,79 @@ public class Quibids {
 		parameters.add(new BasicNameValuePair("sort","endingsoon"));
 		parameters.add(new BasicNameValuePair("p","1"));
 		parameters.add(new BasicNameValuePair("v","g"));
-		try {
-			httpPost.setEntity(new UrlEncodedFormEntity(parameters));
-			httpResponse = httpClientAuctionID.execute(httpPost);
-			JSONArray auctions = JSONObject.fromObject(EntityUtils.toString(httpResponse.getEntity())).getJSONArray("Auctions");
-			for (int i = 0; i < auctions.size(); i++) {
-				html = auctions.getJSONObject(i).getString("html");
-//				如果分类里面的竞拍包含CDT，表示竞拍还没有人出价
-				if (html.contains("CDT")) {
-					auctionUrl = "/en/auction-" + auctions.getJSONObject(i).getInt("id");
-//					System.out.println("auctionUrl: " + auctionUrl);
-					return auctionUrl;
-				}
-			}
-		} catch (UnsupportedEncodingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			try {
-				httpResponse.close();
-				httpClientAuctionID.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+//		创建httpRequestHandler对象，发送httpPost,使用后关闭httpClient
+		jsonStr = requestHandler.getHttpPostResponseJSON(url, parameters);
+		requestHandler.closeHttpClient();
+//		从返回的json字符串中获得竞拍列表，并找出第一个未开始的auction
+//		如果分类里面的竞拍包含CDT，表示竞拍还没有人出价
+		JSONArray auctions = JSONObject.fromObject(jsonStr).getJSONArray("Auctions");
+		for (int i = 0; i < auctions.size(); i++) {
+			html = auctions.getJSONObject(i).getString("html");
+			if (html.contains("CDT")) {
+				auctionUrl = "/en/auction-" + auctions.getJSONObject(i).getInt("id");
+				return auctionUrl;
 			}
 		}
 		return auctionUrl;
 	}
 	
-	public void getAuctionInfo(Auction auction, CloseableHttpClient httpClient, String auctionUrl) {
+	public void getAuctionInfo(Auction auction, HttpRequestHandler requestHandler, String auctionUrl) {
 		System.out.println(new Date() + " auction: http://www.quibids.com" +  auctionUrl);
 		String auctionID, productTitle, valuePrice, transactionFree, returnPolicy, auctionStatus;
-//		Auction auction = new Auction();
-		HttpGet httpGet = new HttpGet("http://www.quibids.com" + auctionUrl);
-		HttpPost httpPost = null;
-		CloseableHttpResponse httpResponse = null;
-		HttpEntity httpEntity = null;
-		try {
-			httpResponse = httpClient.execute(httpGet);
-			httpEntity = httpResponse.getEntity();
-			String html = EntityUtils.toString(httpEntity);
-			Document doc = Jsoup.parse(html);
-//			获取并存储竞拍信息
-			auctionID = doc.select("span[itemprop='title']").get(2).text().substring(10);
-			auction.setAuctionID(auctionID);
-			auction.setProductTitle(doc.getElementById("product_title").text());
-			auction.setValuePrice(doc.getElementsByClass("float-right").get(0).text());
-			for (int i = 0; i < doc.getElementById("product_description").getElementsByTag("p").size(); i++) {
-				if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Transaction Fee")) {
-					auction.setTransactionFree(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(17));
-				}
-				if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Return Policy")) {
-					auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(15));
-				}
+		String url = "http://www.quibids.com" + auctionUrl;
+		String jsonStr;
+		jsonStr = requestHandler.getHttpGetResponseJSON(url);
+		Document doc = Jsoup.parse(jsonStr);
+//		获取并存储竞拍信息
+		auctionID = doc.select("span[itemprop='title']").get(2).text().substring(10);
+		auction.setAuctionID(auctionID);
+		auction.setProductTitle(doc.getElementById("product_title").text());
+		auction.setValuePrice(doc.getElementsByClass("float-right").get(0).text());
+		for (int i = 0; i < doc.getElementById("product_description").getElementsByTag("p").size(); i++) {
+			if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Transaction Fee")) {
+				auction.setTransactionFree(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(17));
 			}
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} finally {
-			try {
-				httpResponse.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Return Policy")) {
+				auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(15));
 			}
 		}
+		
+//		HttpGet httpGet = new HttpGet("http://www.quibids.com" + auctionUrl);
+//		HttpPost httpPost = null;
+//		CloseableHttpResponse httpResponse = null;
+//		HttpEntity httpEntity = null;
+//		try {
+//			httpResponse = httpClient.execute(httpGet);
+//			httpEntity = httpResponse.getEntity();
+//			String html = EntityUtils.toString(httpEntity);
+//			Document doc = Jsoup.parse(html);
+////			获取并存储竞拍信息
+//			auctionID = doc.select("span[itemprop='title']").get(2).text().substring(10);
+//			auction.setAuctionID(auctionID);
+//			auction.setProductTitle(doc.getElementById("product_title").text());
+//			auction.setValuePrice(doc.getElementsByClass("float-right").get(0).text());
+//			for (int i = 0; i < doc.getElementById("product_description").getElementsByTag("p").size(); i++) {
+//				if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Transaction Fee")) {
+//					auction.setTransactionFree(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(17));
+//				}
+//				if (doc.getElementById("product_description").getElementsByTag("p").get(i).text().contains("Return Policy")) {
+//					auction.setReturnPolicy(doc.getElementById("product_description").getElementsByTag("p").get(i).text().substring(15));
+//				}
+//			}
+//		} catch (ClientProtocolException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} finally {
+//			try {
+//				httpResponse.close();
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//		}
 	}
 	
 	public void getWinnerInfo(Auction auction, String auctionUrl) {
