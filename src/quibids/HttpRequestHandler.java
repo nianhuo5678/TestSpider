@@ -32,7 +32,7 @@ public class HttpRequestHandler {
 	Logger logger = null;
 	
 	public HttpRequestHandler() {
-		httpClient = HttpClients.createDefault();
+		httpClient = HttpClients.createDefault();	
 	}
 
 	/*
@@ -44,6 +44,8 @@ public class HttpRequestHandler {
 		String jsonStr = null;
 		CloseableHttpResponse httpResponse = null;
 		HttpGet httpGet = new HttpGet(url);
+		httpGet.setHeader("User-Agent", 
+				"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.116 Safari/537.36");
 		try {
 			httpResponse = this.httpClient.execute(httpGet);
 			HttpEntity entity = httpResponse.getEntity();
@@ -75,6 +77,8 @@ public class HttpRequestHandler {
 		String jsonStr = null;
 		CloseableHttpResponse httpResponse = null;
 		HttpPost httpPost = new HttpPost(url);
+		httpPost.setHeader("User-Agent", 
+				"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.116 Safari/537.36");
 		try {
 			httpPost.setEntity(new UrlEncodedFormEntity(parameters));
 			httpResponse = this.httpClient.execute(httpPost);
