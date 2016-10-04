@@ -1,7 +1,16 @@
 var page = require('webpage').create(),
 system = require('system'),
 url;
+page.settings.resourceTimeout = 180000;  //timeout 180s
 url = system.args[1];
+
+page.onResourceTimeout = function(e) {
+    console.log(e.errorCode);   // it'll probably be 408
+    console.log(e.errorString); // it'll probably be 'Network timeout on resource'
+    console.log(e.url);         // the url whose request timed out
+    phantom.exit(1);
+};
+
 page.open(url, function(status) {
   if(status === "success") {
     var realbids = page.evaluate(function() {

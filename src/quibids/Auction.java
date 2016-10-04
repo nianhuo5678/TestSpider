@@ -11,7 +11,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-public class Auction implements Runnable {
+public class Auction {
 
 	private String auctionID;
 	private String productTitle;
@@ -118,33 +118,7 @@ public class Auction implements Runnable {
 		return null;
 	}
 	
-	@Override
-	public void run() {
-		// TODO Auto-generated method stub
-		String nowStatus;
-		System.out.println("thread is started");
-		while (!Thread.currentThread().isInterrupted()) {
-			try {
-				Thread.sleep(1000);
-				if (this.getStatus().equals("Bid Now")) {
-					nowStatus = this.getCurrentStatus();
-					if (nowStatus != null) {
-						this.setStatus(nowStatus); 
-						System.out.println(dateFormat.format(new Date()) + " " + this.getStatus());
-						if (this.getStatus().equals("Locked")) {
-							this.setLockTime(dateFormat.format(new Date()));
-							System.out.println("Locked at: " + dateFormat.format(new Date()));
-						}
-					}
-				} 
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				System.out.println("Thread is interrupted");
-				Thread.currentThread().interrupt();
-			}
-
-		}
-	}
+	
 	public Auction() {
 		super();
 		dateFormat = new SimpleDateFormat("HH:mm:ss");

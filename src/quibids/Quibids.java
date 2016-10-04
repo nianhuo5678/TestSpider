@@ -24,60 +24,25 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
-public class Quibids {
+public class Quibids implements Runnable{
 	
-//	private static Properties properties;
-	
-	public Quibids() {
-		super();
-//		try {
-//			FileReader reader = new FileReader("conf.properties");
-//			properties = new Properties();
-//			properties.load(reader);
-//		} catch (FileNotFoundException e1) {
-//			// TODO Auto-generated catch block
-//			System.out.println("can not find file conf.properties");
-//		} catch (IOException e) {
-//			// TODO Auto-generated catch block
-//			System.out.println("can not load conf.properties");
-//		}
-	}
 	
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
-
-		CloseableHttpClient httpClient = null;
-		Thread tAuction;
-		String auctionUrl;
-		boolean getAllBids;
-		HttpRequestHandler requestHandler = null;
-		Quibids qui = new Quibids();
-		String cats = Util.readProperties("cats");
-		for (int i = 0; i < 99; i++) {
-			System.out.println("The " + i + " auction");
-			requestHandler = new HttpRequestHandler();
-			httpClient = HttpClients.createDefault();
-			Auction auction = new Auction();
-			getAllBids = false;
-			ArrayList<Bidder> bidders = new ArrayList<Bidder>();
-			tAuction = new Thread(auction);
-			auctionUrl = qui.getAuctionUrl(requestHandler, cats);
-			qui.getAuctionInfo(auction, requestHandler, auctionUrl);
-			getAllBids = qui.getBids(bidders, requestHandler, auction.getAuctionID(), auction, tAuction);
-			if (!getAllBids) {
-				continue;
-			}
-			qui.getWinnerInfo(auction, auctionUrl);
-			qui.writeExcel(auction, bidders);
-			requestHandler.closeHttpClient();
+		ExecutorService executor = Executors.newFixedThreadPool(Integer.parseInt(Util.readProperties("threads")));
+		for(int i = 0; i < 100; i++) {
+			executor.execute(new Quibids());
 		}
+		executor.shutdown();
 	}
 
-	public String getAuctionUrl(HttpRequestHandler requestHandler, String cats) {
+	public synchronized String getAuctionUrl(HttpRequestHandler requestHandler, String cats) {
 		String auctionUrl = null;
 		String jsonStr = null;
 		String html = null;
@@ -90,29 +55,66 @@ public class Quibids {
 		parameters.add(new BasicNameValuePair("sort","endingsoon"));
 		parameters.add(new BasicNameValuePair("p","1"));
 		parameters.add(new BasicNameValuePair("v","g"));
-//		¥¥Ω®httpRequestHandler∂‘œÛ£¨∑¢ÀÕhttpPost, π”√∫Ûπÿ±’httpClient
-		jsonStr = requestHandler.getHttpPostResponseJSON(url, parameters);
-//		¥”∑µªÿµƒjson◊÷∑˚¥Æ÷–ªÒµ√æ∫≈ƒ¡–±Ì£¨≤¢’“≥ˆµ⁄“ª∏ˆŒ¥ø™ ºµƒauction
-//		»Áπ˚∑÷¿‡¿Ô√Êµƒæ∫≈ƒ∞¸∫¨CDT£¨±Ì ææ∫≈ƒªπ√ª”–»À≥ˆº€
-		JSONArray auctions = JSONObject.fromObject(jsonStr).getJSONArray("Auctions");
-		for (int i = 0; i < auctions.size(); i++) {
-			html = auctions.getJSONObject(i).getString("html");
-			if (html.contains("CDT")) {
-				auctionUrl = "/en/auction-" + auctions.getJSONObject(i).getInt("id");
-				return auctionUrl;
+//		ÂΩìËØ∑Ê±ÇË∂ÖÊó∂ÔºåÈáçËØï10Ê¨°
+		int retry = 10;
+		while(retry > 0) {
+			jsonStr = requestHandler.getHttpPostResponseJSON(url, parameters);
+			if(jsonStr == null) {
+				System.out.println("Request getAuctionUrl time out, retry");
+				retry--;
+			}
+			else {
+				break;
 			}
 		}
+		JSONArray auctions = JSONObject.fromObject(jsonStr).getJSONArray("Auctions");
+//		ËØªÂèñauctionsList.txt
+		ArrayList<String> auctionsList = Util.readAuctionList();
+		if ( auctionsList == null ) {
+			for (int i = 0; i < auctions.size(); i++) {
+				html = auctions.getJSONObject(i).getString("html");
+				if (html.contains("CDT") || html.contains("No Bids Yet")) {
+					auctionUrl = "/en/auction-" + auctions.getJSONObject(i).getInt("id");
+					Util.writeAuctionList(auctionUrl);
+					System.out.println(Thread.currentThread().getName() + " http://www.quibids.com" + auctionUrl);
+					return auctionUrl;
+				}
+			}
+		} else {
+			for (int i = 0; i < auctions.size(); i++) {
+				html = auctions.getJSONObject(i).getString("html");
+				int auctionID = auctions.getJSONObject(i).getInt("id");
+				auctionUrl = "/en/auction-" + auctionID;
+//				Êú™ÂºÄÂßãÂπ∂‰∏î‰∏çÂ≠òÂú®auctionsListÁöÑÁ´ûÊãç
+				if ( (html.contains("CDT") || html.contains("No Bids Yet")) && !auctionsList.contains(auctionUrl) ) {
+					Util.writeAuctionList(auctionUrl);
+					System.out.println(Thread.currentThread().getName() + " http://www.quibids.com" + auctionUrl);
+					return auctionUrl;
+				}
+			}
+		}
+		
+
 		return auctionUrl;
 	}
 	
 	public void getAuctionInfo(Auction auction, HttpRequestHandler requestHandler, String auctionUrl) {
-		System.out.println(new Date() + " auction: http://www.quibids.com" +  auctionUrl);
-		String auctionID, productTitle, valuePrice, transactionFree, returnPolicy, auctionStatus;
+		String auctionID;
 		String url = "http://www.quibids.com" + auctionUrl;
-		String jsonStr;
-		jsonStr = requestHandler.getHttpGetResponseJSON(url);
+		String jsonStr = null;
+//		ÂΩìËØ∑Ê±ÇË∂ÖÊó∂ÔºåÈáçËØï5Ê¨°
+		int retry = 10;
+		while(retry > 0) {
+			jsonStr = requestHandler.getHttpGetResponseJSON(url);
+			if(jsonStr == null) {
+				System.out.println("Request getAuctionInfo time out, retry");
+				retry--;
+			}
+			else {
+				break;
+			}
+		}
 		Document doc = Jsoup.parse(jsonStr);
-//		ªÒ»°≤¢¥Ê¥¢æ∫≈ƒ–≈œ¢
 		auctionID = doc.select("span[itemprop='title']").get(2).text().substring(10);
 		auction.setAuctionID(auctionID);
 		auction.setProductTitle(doc.getElementById("product_title").text());
@@ -131,31 +133,50 @@ public class Quibids {
 		System.out.println(new Date() + " Start getWinnerInfo");
 		Runtime rt = Runtime.getRuntime();  
         Process p = null;
-		try {
-			p = rt.exec( Util.readProperties("phantomjsPath") + " " + Util.readProperties("eoaPath") + " " +
-					"http://www.quibids.com" + auctionUrl);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} 
-        InputStream is = p.getInputStream();  
-        BufferedReader br = new BufferedReader(new InputStreamReader(is));  
-        StringBuffer sbf = new StringBuffer();  
-        String tmp = "";  
+        InputStream is = null;
+        BufferedReader br = null;
+        String firstLine = null;
+//		ÂΩìËØ∑Ê±ÇË∂ÖÊó∂ÔºåÈáçËØï5Ê¨°
+        int retry = 5;
+        while(retry > 0) {
+    		try {
+//    			use proxy
+    			if(Util.readProperties("eoaProxy").equals("true")) {
+    				String execStr = Util.readProperties("phantomjsPath") + " --proxy=" + Util.readProperties("host") 
+    				+ ":" + Util.readProperties("port")
+    				+ " " + Util.readProperties("eoaPath") + " " +
+    				"http://www.quibids.com" + auctionUrl;
+    				p = rt.exec( execStr);
+    			} else {
+    				p = rt.exec( Util.readProperties("phantomjsPath") + " " + Util.readProperties("eoaPath") 
+    				+ " " + "http://www.quibids.com" + auctionUrl);
+    			}
+                is = p.getInputStream();  
+                br = new BufferedReader(new InputStreamReader(is));
+//              error code = 408, request timeout
+                firstLine = br.readLine();
+                System.out.println("First line of eoa response " + firstLine);
+                if (firstLine == null || firstLine.equals("")) {
+                	retry--;
+                	System.out.println("response get winner info:eoa.js invalid");
+                } else if(Integer.parseInt(firstLine) == 408) {
+                	retry--;
+                	System.out.println("request get winnder info:eoa.js time out");
+                } else {
+                	break;
+                }
+    		} catch (IOException e) {
+    			// TODO Auto-generated catch block
+    			e.printStackTrace();
+    		} 
+        } 
         try {
-//			while((tmp = br.readLine())!=null){  
-//			    sbf.append(tmp);  
-//			}
-        	String realBids = br.readLine();
+        	String realBids = firstLine;
         	String voucherBids = br.readLine();
         	String endTime = br.readLine();
         	auction.setRealBids(realBids);
         	auction.setVoucherBids(voucherBids);
         	auction.setEndTime(endTime);
-        	
-//            System.out.println(realBids);
-//            System.out.println(voucherBids);
-//            System.out.println(endTime);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -163,9 +184,8 @@ public class Quibids {
         System.out.println("End getWinnerInfo");
 	}
 	
-	public boolean getBids(ArrayList<Bidder> bidders, HttpRequestHandler httpRequestHandler, String auctionID, Auction auction,Thread tAuction) {
-		tAuction.start();
-		System.out.println(new Date() + " Start GetBids");
+	public boolean getBids(ArrayList<Bidder> bidders, HttpRequestHandler httpRequestHandler, String auctionID, Auction auction, HttpRequestHandler requestHandler) {
+		System.out.println(Util.formattedTime() + " " + Thread.currentThread().getName() + " Start GetBids");
 		JSONObject jO;
 		String[] achievements = null;
 		String b = "70762479", w = "ys", m = "100", i;
@@ -182,44 +202,44 @@ public class Quibids {
 				"&lb_id=" + auctionID +
 				"&c=" + "jQuery" + "012345678901234567890" + "_" + System.currentTimeMillis();
 		String profileUrl = null;
-//		…Ë÷√ ±«¯
 		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT-5"));
+		int sleepTime = Integer.parseInt(Util.readProperties("interval"));
 		while (true) {
-//			√ø¥ŒªÒæ∫≈ƒ–≈œ¢º‰∏Ù ±º‰
+//			call lockTime method to find out auction is locked or not
+			this.lockTime(auction, requestHandler);
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(sleepTime);
 			} catch (InterruptedException e1) {
 				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			
 			String jsonStr = httpRequestHandler.getHttpGetResponseJSON(url);
-//			∑÷∏Ó◊÷∑˚¥Æ£¨Ã·»°≥ˆ £® ∫Õ £©÷Æº‰µƒjson◊÷∑˚¥Æ
+			if(jsonStr == null){
+				continue;
+			}
+			if( !(jsonStr.contains("(") && jsonStr.contains(")")) ){
+				continue;
+			}
 			String responseBody = jsonStr.split("\\(")[1].split("\\)")[0];
-//			ºÏ≤ÈÃ·»°≥ˆµƒ◊÷∑˚¥Æ «∑Ò∫œ∑®µƒjson∏Ò Ω£¨»Áπ˚≤ª∫œ∑®£¨continue
 			if (!JSONUtils.mayBeJSON(responseBody)) {
 				continue;
 			}
 			jO = JSONObject.fromObject(responseBody);
-//			æ∫≈ƒΩ· ¯Ã¯≥ˆwhile—≠ª∑
-			if (responseBody.contains("Completed") || responseBody.equals("{\"a\":[]}") || auctionStatus.equals("Ended")) {
+			if (responseBody.contains("Completed") || responseBody.equals("{\"a\":[]}")) {
 				System.out.println("stop thread after auction is ended");
 				System.out.println("End get bids. " + bidders.size() + " bidder is added");
-				tAuction.interrupt();
 				return true;
 			}
 			if (responseBody.contains("bh")) {
-//				æ∫≈ƒº€∏¸–¬
 				JSONArray bh = jO.getJSONObject("a").getJSONObject(auctionID).getJSONArray("bh");
 				JSONObject bid = null;
 				latestBidID = bh.getJSONObject(0).getInt("id");
-//				»Áπ˚◊Ó–¬±®º€ID¥Û”⁄◊Ó¥ÛID,±®º€”–∏¸–¬
 				if (latestBidID > maxID ) {
 					if ( (latestBidID - maxID) <= 9) {
 						for (int j = (latestBidID - maxID - 1); j >= 0; j--) {
 							bid = (JSONObject) bh.getJSONObject(j);
 							Bidder bidder = new Bidder();
-//							≤È’“µ±«∞≤…ºØµΩµƒ”√ªß «∑Ò“—ªÒ»°µΩ”√ªß◊ ¡œ£¨»Áπ˚¥Ê‘⁄‘Ú¥”∂”¡–÷–∏¥÷∆£¨∑Ò‘Ú∑¢ÀÕ«Î«ÛªÒ»°
 							for (Bidder b1 : bidders) {
 								if (bid.getString("u").equals(b1.getUname())) {
 									bidder.setJoinDay(b1.getJoinDay());
@@ -232,28 +252,22 @@ public class Quibids {
 									existed = false;
 								}
 							}
-//					»Áπ˚µ±«∞≤…ºØµΩ≥ˆº€”√ªß≤ª‘⁄¡–±Ì÷–£¨∑¢ÀÕ«Î«ÛªÒ»°”√ªßœÍœ∏–≈œ¢
-					if ( !existed) {
+					if ( !existed ) {
 						profileUrl = "http://www.quibids.com/ajax/profiles.php?username=" + bid.getString("u") +
 								"&auctionid=" + auctionID;
 						String profileStr = httpRequestHandler.getHttpGetResponseJSON(profileUrl);
-//						profileGet = new HttpGet(profileUrl);
-//						profileResponse = httpClient.execute(profileGet);
-//						String profileStr = EntityUtils.toString(profileResponse.getEntity());
 						if (!JSONUtils.mayBeJSON(profileStr)) {
 							continue;
 						}
 						JSONObject profileJSON = JSONObject.fromObject(profileStr);
 						bidder.setJoinDay(profileJSON.getJSONObject("profile").getString("joined"));
 						bidder.setBiddingOn(profileJSON.getJSONObject("profile").getString("biddingOn"));
-//						≈–∂œ”√ªßµƒlatestWin «∑ÒŒ™ø’£¨»Áπ˚ «ø’£¨¥Ê»Înever win°£
 						if (profileJSON.getJSONObject("profile").getString("win").equals("")) {
 							bidder.setLatestWin("never win");
 						} else {
 							bidder.setLatestWin(profileJSON.getJSONObject("profile").getString("win").split(">")[1].split("<")[0]);
 						}
 						
-//						≈–∂œ”√ªß «∑Ò”–achievement
 						if (profileJSON.getJSONObject("profile").has("badges")) {
 							JSONArray achievementsArray = profileJSON.getJSONObject("profile").getJSONArray("badges");
 							achievements = new String[achievementsArray.size()];
@@ -265,7 +279,7 @@ public class Quibids {
 							bidder.setAchievements(null);
 						}
 					}
-//					¥Ê¥¢æ∫≈ƒ¿‡–Õ 1£∫Single Bid; 2:BidOMatic
+//					1:Single Bid; 2:BidOMatic
 					if (bid.getInt("t") == 1) {
 						bidder.setType("Single Bid");
 					} else {
@@ -277,11 +291,10 @@ public class Quibids {
 					bidder.setBidTime(dateFormat.format(new Date()));
 					bidders.add(bidder);
 					}
-//					∏¸–¬maxID
+//					reset latestBidID
 					maxID = latestBidID;
 					} else {
-						System.out.println("≤…ºØæ∫≈ƒº€”–“≈¬©£¨±ææ∫≈ƒ∆∑≤…ºØΩ·π˚◊˜∑œ");
-						tAuction.interrupt();
+						System.out.println("collect bidding history lost");
 						return false;
 					}
 				}
@@ -289,10 +302,39 @@ public class Quibids {
 		}
 	}
 	
-	public String getLockTime() {
-		String lockTime = null;
-		return lockTime;
+	public void lockTime(Auction auction, HttpRequestHandler requestHandler) {
+//		
+		if(auction.getLockTime() == null) {
+			String lockTime = null;
+			String i = this.transferToI(auction.getAuctionID());
+			String url = "http://www.quibids.com/ajax/l.php?&w=ys&m=100&i=" + i 
+					+ "&c=" + "jQuery" + "012345678901234567890" + "_" + System.currentTimeMillis()
+					+ "&_=" + System.currentTimeMillis();
+			String responseSrt = requestHandler.getHttpGetResponseJSON(url);
+			if(responseSrt == null) {
+				return;
+			}
+			String jsonStr = responseSrt.split("\\(")[1].split("\\)")[0];
+			if(JSONUtils.mayBeJSON(jsonStr)) {
+				JSONObject jO = JSONObject.fromObject(jsonStr);
+				if(jO.getString("a").equals("[]")) {
+					auction.setLockTime(null);
+				} else if( jO.getJSONObject("a").getJSONObject(auction.getAuctionID()).getInt("l") == 1 ) {
+//					l=1, auction is locked, set locked time 
+					lockTime = Util.formattedTime();
+					auction.setLockTime(lockTime);
+					System.out.println("LockTime: " + auction.getLockTime());
+				} else {
+					auction.setLockTime(null);
+				}
+			} else {
+				System.out.println("josn not valid: " + responseSrt);
+				auction.setLockTime(null);
+			}
+		}
+
 	}
+	
 	public String transferToI(String lb_id) {
 		String i = lb_id;
 		for (int j = 10; j <=35; j++) {
@@ -321,30 +363,20 @@ public class Quibids {
 				", Last Price:" + bidders.get(bidders.size()-1).getPrice());
 		System.out.println("------------------------------");
 		
-//		System.out.println("Bidding history:");
-//		for (Bidder b : bidders) {
-//			System.out.println("Bidder:" + b.getId() + 
-//					", Name: " + b.getUname() +
-//					", Price:" + b.getPrice() +
-//					", Bid time:" + b.getBidTime() +
-//					", Member Since:" + b.getJoinDay() +
-//					", Bidding On:" + b.getBiddingOn() +
-//					", Latest Win:" + b.getLatestWin() +
-//					", Bidding Type:" + b.getType() + 
-//					", Achievements:" + Arrays.toString(b.getAchievements()));
-//		}
 		
-		
-		//“‘æ∫≈ƒIDŒ™csvŒƒº˛√˚
-		String csvFile = "E:\\quibids\\" + auction.getAuctionID() + ".csv";
+		String folder = Util.readProperties("outputFolder");
+		String csvFile = folder + auction.getAuctionID() + ".csv";
+		File dir = new File(folder);
+//		create folder if not exist
+		if( !dir.exists()) {			
+			dir.mkdirs();
+		}
 		try {
 			FileWriter fw = new FileWriter(csvFile);
 			fw.write("Auction info:\r\n");
-//			¥Ú”°auction info±ÌÕ∑
 			String auctionHeader = "AuctionID,Product title,Value Price,Transcation Free,Return Policy,"
 					+ "Real Bids,Voucher Bids,End Time,Winner,Last Price,Lock Time\r\n";
 			fw.write(auctionHeader);
-//			¥Ú”°auctionƒ⁄»›
 			String auctionInfo = auction.getAuctionID() + "," + 
 								 auction.getProductTitle() + "," +
 								 auction.getValuePrice() + "," +
@@ -357,7 +389,6 @@ public class Quibids {
 								 bidders.get(bidders.size()-1).getPrice() + "," + 
 								 auction.getLockTime() + "\r\n";
 			fw.write(auctionInfo);
-//			¥Ú”°BiddingHistory±ÌÕ∑º∞ƒ⁄»›
 			fw.write("Bidding history\r\n");
 			String bidderHeader = "#,Name,Price,Bid time,Member Since,Bidding On,Latest Win,Bidding Type,Achievement#1,Achievement#2,Achievement#3,Achievement#4,Achievement#5\r\n";
 			fw.write(bidderHeader);
@@ -379,7 +410,7 @@ public class Quibids {
 				bidder = bidder + "\r\n";
 				fw.write(bidder);
 			}
-//			πÿ±’∂‘œÛ
+//			close file writer
 			fw.flush();
 			fw.close();
 			
@@ -392,5 +423,32 @@ public class Quibids {
 		
 		
 
+	}
+
+	@Override
+	public void run() {
+		System.out.println(Thread.currentThread().getName() + " started");
+		// TODO Auto-generated method stub
+		String auctionUrl;
+		boolean getAllBids;
+		HttpRequestHandler requestHandler = null;
+		Quibids qui = new Quibids();
+		String cats = Util.readProperties("cats");
+		
+		requestHandler = new HttpRequestHandler();
+		Auction auction = new Auction();
+		getAllBids = false;
+		ArrayList<Bidder> bidders = new ArrayList<Bidder>();
+		auctionUrl = qui.getAuctionUrl(requestHandler, cats);
+		qui.getAuctionInfo(auction, requestHandler, auctionUrl);
+		getAllBids = qui.getBids(bidders, requestHandler, auction.getAuctionID(), auction, requestHandler);
+		if (!getAllBids) {
+			System.out.println(Thread.currentThread().getName() + " is interrupted, because getAllBids = " + getAllBids);
+			Thread.currentThread().interrupt();
+		}
+		qui.getWinnerInfo(auction, auctionUrl);
+		qui.writeExcel(auction, bidders);
+		requestHandler.closeHttpClient();
+		System.out.println(Thread.currentThread().getName() + " ended");
 	}
 }
