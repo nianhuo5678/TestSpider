@@ -36,7 +36,7 @@ public class Quibids implements Runnable{
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		ExecutorService executor = Executors.newFixedThreadPool(Integer.parseInt(Util.readProperties("threads")));
-		for(int i = 0; i < 100; i++) {
+		for(int i = 0; i < 10000; i++) {
 			executor.execute(new Quibids());
 		}
 		executor.shutdown();
@@ -136,8 +136,8 @@ public class Quibids implements Runnable{
         InputStream is = null;
         BufferedReader br = null;
         String firstLine = null;
-//		当请求超时，重试5次
-        int retry = 5;
+//		当请求超时，重试8次
+        int retry = 8;
         while(retry > 0) {
     		try {
 //    			use proxy
@@ -156,7 +156,7 @@ public class Quibids implements Runnable{
 //              error code = 408, request timeout
                 firstLine = br.readLine();
                 System.out.println("First line of eoa response " + firstLine);
-                if (firstLine == null || firstLine.equals("")) {
+                if (firstLine == null || firstLine.equals("") || firstLine.contains("Error")) {
                 	retry--;
                 	System.out.println("response get winner info:eoa.js invalid");
                 } else if(Integer.parseInt(firstLine) == 408) {
